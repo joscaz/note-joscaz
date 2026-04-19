@@ -1,0 +1,305 @@
+import { useEffect } from 'react';
+import type { Midi } from '@tonejs/midi';
+import { downloadMidi } from '../services/midiExporter';
+import type { AudioSource } from '../services/audioEngine';
+import type { InstrumentType } from '../utils/noteColors';
+import { NOTE_GRADIENTS } from '../utils/noteColors';
+
+interface PlayerApi {
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  bpm: number;
+  volume: number;
+  loop: boolean;
+  source: AudioSource;
+  toggle: () => Promise<void>;
+  restart: () => void;
+  seek: (s: number) => void;
+  seekBy: (d: number) => void;
+  setBpm: (b: number) => void;
+  setVolume: (v: number) => void;
+  setLoop: (l: boolean) => void;
+  setSource: (s: AudioSource) => void;
+}
+
+interface PlaybackControlsProps {
+  player: PlayerApi;
+  scrollSpeed: number;
+  onScrollSpeedChange: (n: number) => void;
+  midi: Midi;
+  instrument: InstrumentType;
+}
+
+export function PlaybackControls({
+  player,
+  scrollSpeed,
+  onScrollSpeedChange,
+  midi,
+  instrument,
+}: PlaybackControlsProps) {
+  const grad = NOTE_GRADIENTS[instrument];
+
+  // Keyboard shortcuts: Space = toggle, R = restart, ArrowUp/Down = scroll speed.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        void player.toggle();
+      } else if (e.code === 'KeyR') {
+        e.preventDefault();
+        player.restart();
+      } else if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        onScrollSpeedChange(Math.min(600, scrollSpeed + 20));
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        onScrollSpeedChange(Math.max(80, scrollSpeed - 20));
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        player.seekBy(-5);
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        player.seekBy(5);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [player, scrollSpeed, onScrollSpeedChange]);
+
+  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
+
+  return (
+    <div className="glass rounded-2xl border border-white/10 p-4 md:p-5 flex flex-col gap-4">
+      {/* Timeline */}
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-xs text-muted w-14 tabular-nums">{fmt(player.currentTime)}</span>
+        <input
+          type="range"
+          min={0}
+          max={Math.max(1, player.duration)}
+          step={0.01}
+          value={player.currentTime}
+          onChange={(e) => player.seek(parseFloat(e.target.value))}
+          className="flex-1 accent-[color:var(--accent)]"
+          style={{
+            ['--accent' as string]: grad.top,
+          } as React.CSSProperties}
+        />
+        <span className="font-mono text-xs text-muted w-14 tabular-nums text-right">{fmt(player.duration)}</span>
+      </div>
+
+      {/* Row 1: transport */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <ControlButton title="Restart (R)" onClick={player.restart}>⏮</ControlButton>
+          <ControlButton title="Back 5s (←)" onClick={() => player.seekBy(-5)}>⏪</ControlButton>
+          <PlayButton playing={player.isPlaying} onClick={() => void player.toggle()} grad={grad} />
+          <ControlButton title="Forward 5s (→)" onClick={() => player.seekBy(5)}>⏩</ControlButton>
+          <ControlButton title="End" onClick={() => player.seek(player.duration)}>⏭</ControlButton>
+        </div>
+
+        <div className="h-6 w-px bg-white/10" />
+
+        {/* BPM */}
+        <label className="flex items-center gap-2 text-xs font-mono text-muted">
+          <span>BPM</span>
+          <input
+            type="number"
+            min={40}
+            max={240}
+            value={Math.round(player.bpm)}
+            onChange={(e) => player.setBpm(parseInt(e.target.value, 10) || 120)}
+            className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-text tabular-nums"
+          />
+        </label>
+
+        {/* Scroll speed */}
+        <label className="flex items-center gap-2 text-xs font-mono text-muted">
+          <span>SCROLL</span>
+          <input
+            type="range"
+            min={80}
+            max={600}
+            step={10}
+            value={scrollSpeed}
+            onChange={(e) => onScrollSpeedChange(parseInt(e.target.value, 10))}
+            className="w-32 accent-[color:var(--accent)]"
+            style={{ ['--accent' as string]: grad.top } as React.CSSProperties}
+          />
+          <span className="tabular-nums w-12 text-text">{scrollSpeed}</span>
+        </label>
+
+        <div className="h-6 w-px bg-white/10" />
+
+        {/* Volume */}
+        <VolumeKnob value={player.volume} onChange={player.setVolume} color={grad.top} />
+
+        <div className="h-6 w-px bg-white/10" />
+
+        {/* Loop */}
+        <button
+          onClick={() => player.setLoop(!player.loop)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-colors ${
+            player.loop
+              ? 'bg-white/10 border-white/30 text-text'
+              : 'border-white/10 text-muted hover:text-text hover:border-white/20'
+          }`}
+          title="Loop (L)"
+        >
+          Loop
+        </button>
+
+        {/* A/B source switch */}
+        <ABSwitch value={player.source} onChange={player.setSource} color={grad.top} />
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => downloadMidi(midi, `noteforge-${instrument}.mid`)}
+            className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors"
+          >
+            ↓ MIDI
+          </button>
+        </div>
+      </div>
+
+      {/* Progress shimmer under controls */}
+      <div className="relative h-0.5 w-full bg-white/5 rounded overflow-hidden">
+        <div
+          className="absolute left-0 top-0 h-full transition-all"
+          style={{
+            width: `${progress * 100}%`,
+            background: `linear-gradient(90deg, ${grad.top}, ${grad.bottom})`,
+            boxShadow: `0 0 12px ${grad.glow}`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PlayButton({ playing, onClick, grad }: { playing: boolean; onClick: () => void; grad: { top: string; bottom: string; glow: string } }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Play/Pause (Space)"
+      className="relative w-12 h-12 rounded-full flex items-center justify-center text-lg font-button font-bold text-black transition-transform hover:scale-105 active:scale-95"
+      style={{
+        background: `linear-gradient(135deg, ${grad.top}, ${grad.bottom})`,
+        boxShadow: `0 0 22px ${grad.glow}, 0 4px 20px rgba(0,0,0,0.4)`,
+      }}
+    >
+      {playing ? '⏸' : '▶'}
+    </button>
+  );
+}
+
+function ControlButton({ children, onClick, title }: { children: React.ReactNode; onClick: () => void; title: string }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="w-9 h-9 rounded-lg border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors flex items-center justify-center"
+    >
+      {children}
+    </button>
+  );
+}
+
+function VolumeKnob({ value, onChange, color }: { value: number; onChange: (v: number) => void; color: string }) {
+  const size = 40;
+  const stroke = 3;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - value);
+
+  const startDrag = (e: React.PointerEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const startY = e.clientY;
+    const startVal = value;
+    const move = (ev: PointerEvent) => {
+      const dy = startY - ev.clientY;
+      onChange(Math.max(0, Math.min(1, startVal + dy / 120)));
+    };
+    const up = (ev: PointerEvent) => {
+      el.releasePointerCapture(ev.pointerId);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-xs font-mono text-muted select-none">
+      <span>VOL</span>
+      <svg
+        width={size}
+        height={size}
+        onPointerDown={startDrag}
+        onWheel={(e) => onChange(Math.max(0, Math.min(1, value - e.deltaY / 1000)))}
+        className="cursor-pointer"
+      >
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={color}
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          style={{ filter: `drop-shadow(0 0 6px ${color})` }}
+        />
+        <circle cx={size / 2} cy={size / 2} r={4} fill={color} />
+      </svg>
+      <span className="w-8 tabular-nums text-text">{Math.round(value * 100)}</span>
+    </div>
+  );
+}
+
+function ABSwitch({ value, onChange, color }: { value: AudioSource; onChange: (s: AudioSource) => void; color: string }) {
+  const opts: Array<{ id: AudioSource; label: string; hint: string }> = [
+    { id: 'mp3', label: 'MP3', hint: 'Original audio' },
+    { id: 'both', label: 'A/B', hint: 'Both at once' },
+    { id: 'synth', label: 'MIDI', hint: 'Synthesized transcription' },
+  ];
+  return (
+    <div
+      className="relative flex items-center bg-black/40 rounded-lg border border-white/10 p-1"
+      title="Switch audio source"
+    >
+      {opts.map((o) => (
+        <button
+          key={o.id}
+          onClick={() => onChange(o.id)}
+          title={o.hint}
+          className={`px-2.5 py-1 text-xs font-mono uppercase tracking-wider rounded transition-all ${
+            value === o.id ? 'text-black' : 'text-muted hover:text-text'
+          }`}
+          style={
+            value === o.id
+              ? { background: color, boxShadow: `0 0 10px ${color}` }
+              : undefined
+          }
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function fmt(s: number): string {
+  if (!isFinite(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${r.toString().padStart(2, '0')}`;
+}

@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Aeonik Pro — licensed, self-hosted.
+ * Drop the woff2 files into public/fonts/ and these @font-face rules
+ * will activate. Until then, the `font-display: swap` + Inter fallback
+ * in tailwind.config keeps layout stable.
+ */
+@font-face {
+  font-family: 'Aeonik Pro';
+  src: url('/fonts/AeonikPro-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Aeonik Pro';
+  src: url('/fonts/AeonikPro-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Aeonik Pro';
+  src: url('/fonts/AeonikPro-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Aeonik Pro';
+  src: url('/fonts/AeonikPro-Black.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Make `font-mono` class behave as tabular Inter rather than a third family. */
+  --tnum: "tnum" 1, "lnum" 1;
+}
+
+.font-mono {
+  font-feature-settings: var(--tnum);
+  letter-spacing: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #050508;
+  color: #f0f0ff;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Noise overlay — tiling SVG turbulence */
+body::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+#root {
+  position: relative;
+  z-index: 2;
+}
+
+/* Subtle radial vignette */
+.bg-aurora {
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(0,245,160,0.10), transparent 60%),
+    radial-gradient(1000px 600px at 85% 110%, rgba(123,47,255,0.12), transparent 60%),
+    radial-gradient(800px 500px at 50% 50%, rgba(255,45,107,0.05), transparent 60%),
+    #050508;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0a14; }
+::-webkit-scrollbar-thumb { background: #1c1c34; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #2a2a4a; }
+
+/* Shimmering gradient util for text / buttons */
+.text-shimmer {
+  background: linear-gradient(90deg, #00f5a0 0%, #7b2fff 50%, #ff2d6b 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+
+.glass {
+  background: rgba(16,16,30,0.55);
+  border: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Remove default focus ring styling; keep accessibility via custom */
+button:focus-visible, input:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid rgba(0,245,160,0.65);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Hide scrollbar on horizontal timeline */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* Glitch text */
+.glitch {
+  position: relative;
+  display: inline-block;
+}
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.glitch::before {
+  text-shadow: 2px 0 #00f5a0;
+  animation: glitchA 2.4s infinite steps(1);
+  clip-path: inset(0 0 60% 0);
+}
+.glitch::after {
+  text-shadow: -2px 0 #ff2d6b;
+  animation: glitchB 2.8s infinite steps(1);
+  clip-path: inset(55% 0 0 0);
+}
+@keyframes glitchA {
+  0%,92%,100% { transform: translate(0,0); }
+  93% { transform: translate(-2px,1px); }
+  95% { transform: translate(1px,-1px); }
+  97% { transform: translate(-1px,0px); }
+}
+@keyframes glitchB {
+  0%,90%,100% { transform: translate(0,0); }
+  91% { transform: translate(2px,-1px); }
+  94% { transform: translate(-1px,1px); }
+  96% { transform: translate(1px,0); }
+}
