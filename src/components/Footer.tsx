@@ -3,7 +3,7 @@ export function Footer() {
     <footer className="border-t border-white/5 mt-20 py-10 px-6 md:px-10 bg-bg">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 items-center justify-between">
         <div className="flex flex-col items-center md:items-start gap-1">
-          <div className="font-display font-extrabold text-xl text-shimmer">NoteForge AI</div>
+          <div className="font-display font-extrabold text-xl">NoteForge AI</div>
           <div className="text-xs text-muted font-mono tracking-wider">
             Turning Sound Into Structure
           </div>
