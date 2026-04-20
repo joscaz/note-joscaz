@@ -51,7 +51,7 @@ export function Visualizer({ midi, instrument, fileName, isRealTranscription }: 
           <div className="text-xs uppercase tracking-[0.4em] text-muted font-mono">
             {instrument === 'piano' ? 'Piano Transcription' : 'Guitar → MIDI'}
           </div>
-          <h2 className="font-display text-3xl md:text-5xl font-extrabold text-text">Joscaz Forge</h2>
+          <h2 className="font-display text-3xl md:text-5xl font-extrabold text-text">Note Joscaz</h2>
           {fileName && (
             <div className="mt-1 text-sm text-muted font-mono truncate max-w-[60vw]">
               {fileName}

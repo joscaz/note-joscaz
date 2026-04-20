@@ -1,10 +1,10 @@
-# NoteForge AI
+# NoteJoscaz AI
 
 Raw Audio → Perfect MIDI. A cinematic, Synthesia-style MIDI visualizer that runs entirely in the browser.
 
 Upload an MP3 or WAV, pick **Piano** or **Guitar**, and watch a 60fps falling-note piano roll play the transcribed MIDI over your original audio. Flip the **A/B source toggle** to swap between the original recording and the synthesized transcription — same Transport, zero drift.
 
-![NoteForge AI](https://via.placeholder.com/1400x700/050508/00f5a0?text=NoteForge+AI)
+![NoteJoscaz AI](https://via.placeholder.com/1400x700/050508/00f5a0?text=NoteJoscaz+AI)
 
 ## Quick start
 
@@ -95,8 +95,8 @@ cd ../my-own-mt3
 source venv/bin/activate
 pip install onnx onnxruntime        # for export + quantization
 python export_onnx.py               # writes onnx_out/{piano,guitar}.onnx (+ .int8.onnx)
-cp onnx_out/piano.int8.onnx  ../note-forge/public/models/piano.onnx
-cp onnx_out/guitar.int8.onnx ../note-forge/public/models/guitar.onnx
+cp onnx_out/piano.int8.onnx  ../note-joscaz/public/models/piano.onnx
+cp onnx_out/guitar.int8.onnx ../note-joscaz/public/models/guitar.onnx
 ```
 
 If either `public/models/*.onnx` is missing the app gracefully falls back to the mock MIDI so the landing page always renders.

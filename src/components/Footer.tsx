@@ -3,7 +3,7 @@ export function Footer() {
     <footer className="border-t border-white/5 mt-20 py-10 px-6 md:px-10 bg-bg">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6 items-center justify-between">
         <div className="flex flex-col items-center md:items-start gap-1">
-          <div className="font-display font-extrabold text-xl">NoteForge AI</div>
+          <div className="font-display font-extrabold text-xl">NoteJoscaz AI</div>
           <div className="text-xs text-muted font-mono tracking-wider">
             Turning Sound Into Structure
           </div>
@@ -14,7 +14,7 @@ export function Footer() {
           <a href="#" className="hover:text-text transition-colors">Contact</a>
         </nav>
         <div className="text-[10px] text-muted font-mono">
-          © {new Date().getFullYear()} NoteForge — All rights reserved
+          © {new Date().getFullYear()} NoteJoscaz — All rights reserved
         </div>
       </div>
       <div className="max-w-6xl mx-auto mt-6 pt-6 border-t border-white/5 text-[10px] text-muted font-mono leading-relaxed text-center md:text-left">

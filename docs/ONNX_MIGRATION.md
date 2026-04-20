@@ -1,6 +1,6 @@
 # ONNX migration — how the browser-side pipeline was built
 
-This document captures **what** was done to move Note Forge's transcription
+This document captures **what** was done to move Note Joscaz's transcription
 pipeline from a FastAPI backend serving a PyTorch model to a fully
 client-side ONNX pipeline running in `onnxruntime-web`, and **why** each
 decision was made the way it was. Read it as a reference for future ONNX
@@ -51,7 +51,7 @@ The key design decision was **where to draw the ONNX boundary**:
 | B. **STFT + mel + CNN** | Browser only does audio decode + decoder | Guaranteed feature parity | STFT inside ONNX is tricky |
 | C. Everything | Browser only does file I/O | Simplest frontend | Decoder is hard to express as a graph |
 
-Note Forge picked **B**. The CNN and its exact input features are a single
+Note Joscaz picked **B**. The CNN and its exact input features are a single
 auditable artifact, and the decoder stays in TypeScript because it's
 loop-heavy control flow (NMS, velocity gather, duration synthesis) that's
 awkward in a graph.
@@ -319,9 +319,9 @@ When an export fails, ask these questions **in order**:
 - `my-own-mt3/export_onnx.py`: reproducible export + quantize pipeline
   with a parity guardrail, two checkpoints → `piano.int8.onnx` +
   `guitar.int8.onnx`.
-- `note-forge/public/models/`: the quantized models, shipped to the
+- `note-Joscaz/public/models/`: the quantized models, shipped to the
   browser.
-- `note-forge/src/services/onnx/`: a self-contained audio → MIDI
+- `note-Joscaz/src/services/onnx/`: a self-contained audio → MIDI
   pipeline (prep, session, chunker, decoder, midi builder) that matches
   the InsiderFM inference scripts bit-for-bit per instrument.
 - A working fallback to mock MIDI if the model fails to load, so the

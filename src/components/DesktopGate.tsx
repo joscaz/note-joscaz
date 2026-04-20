@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 /**
  * Full-viewport notice shown on screens narrower than `minWidth`.
- * NoteForge's 88-key piano roll is designed for desktop; rather than render a
+ * NoteJoscaz's 88-key piano roll is designed for desktop; rather than render a
  * squished version, we show a cleaner "best on desktop" card.
  */
 export function DesktopGate({ minWidth = 900, children }: { minWidth?: number; children: React.ReactNode }) {
@@ -18,7 +18,7 @@ export function DesktopGate({ minWidth = 900, children }: { minWidth?: number; c
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-aurora">
       <div className="glass max-w-md rounded-3xl border border-white/10 p-8 text-center flex flex-col gap-4">
-        <div className="text-xs uppercase tracking-[0.4em] text-muted font-mono">NoteForge AI</div>
+        <div className="text-xs uppercase tracking-[0.4em] text-muted font-mono">NoteJoscaz AI</div>
         <h2 className="font-display text-3xl font-extrabold text-shimmer">Best on desktop</h2>
         <p className="text-muted">
           The 88-key piano roll renders at full resolution on wider screens.

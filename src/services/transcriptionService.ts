@@ -134,7 +134,7 @@ export async function transcribe(
     // Model missing / browser missing WebAssembly / etc. — fall back so the
     // demo never dead-ends.
     console.warn(
-      '[NoteForge] ONNX transcription failed, falling back to mock:',
+      '[NoteJoscaz] ONNX transcription failed, falling back to mock:',
       err,
     );
     return mockTranscribe(instrument, onProgress);

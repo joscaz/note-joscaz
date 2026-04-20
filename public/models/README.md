@@ -12,8 +12,8 @@ Both are expected to be the int8-quantized outputs of the export script in the
 cd ~/Documents/RandomProgProjects/my-own-mt3
 source venv/bin/activate
 python export_onnx.py
-cp onnx_out/piano.int8.onnx  ../note-forge/public/models/piano.onnx
-cp onnx_out/guitar.int8.onnx ../note-forge/public/models/guitar.onnx
+cp onnx_out/piano.int8.onnx  ../note-joscaz/public/models/piano.onnx
+cp onnx_out/guitar.int8.onnx ../note-joscaz/public/models/guitar.onnx
 ```
 
 If you prefer un-quantized float32 weights (larger, slightly more accurate),
