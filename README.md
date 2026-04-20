@@ -1,6 +1,6 @@
 # NoteJoscaz AI
 
-Raw Audio → Perfect MIDI. A cinematic, Synthesia-style MIDI visualizer that runs entirely in the browser.
+Raw Audio → Perfect MIDI. A cinematic, Synthesia-style MIDI visualizer. The UI and visualizer run in the browser; transcription is handled by a self-hosted FastAPI backend.
 
 Upload an MP3 or WAV, pick **Piano** or **Guitar**, and watch a 60fps falling-note piano roll play the transcribed MIDI over your original audio. Flip the **A/B source toggle** to swap between the original recording and the synthesized transcription — same Transport, zero drift.
 
@@ -50,7 +50,7 @@ UploadZone  →  audioDecoder  →  transcriptionService  →  Midi
 
 ## Transcription model
 
-The real MIDI is produced by the `OnsetsAndVelocities` piano / guitar models from the sibling [`my-own-mt3`](../my-own-mt3) repo, exported to ONNX and run fully client-side with [onnxruntime-web](https://onnxruntime.ai/docs/tutorials/web/).
+The real MIDI is produced by the `OnsetsAndVelocities` piano / guitar models, served from the self-hosted [`note-joscaz-backend`](../note-joscaz-backend) FastAPI service (PyTorch, deployed on Railway). The frontend POSTs the raw upload to `POST /transcribe/{instrument}` and plays the returned `.mid`.
 
 ### Credits
 
@@ -75,40 +75,32 @@ Their work is Free/Libre and Open Source Software. See the paper and accompanyin
 
 The **guitar** model shipped here is the IAMúsica piano architecture fine-tuned on guitar data for this project; all credit for the original architecture, training code, and piano weights goes to the authors above.
 
-There is no backend. The entry point is still a single file:
+The integration point on the frontend is a single file:
 
 ```
-src/services/transcriptionService.ts     transcribe() orchestration
-src/services/onnx/audioPrep.ts            File → 16 kHz mono Float32Array
-src/services/onnx/session.ts              lazy-loads & caches InferenceSession
-src/services/onnx/chunker.ts              strided inference over long audio
-src/services/onnx/decoder.ts              NMS peak picking + velocity gather
-src/services/onnx/midiBuilder.ts          events → @tonejs/midi Midi
+src/services/transcriptionService.ts   POST /transcribe/{instrument} + mock fallback
 ```
 
-### Getting the model files
+### Backend configuration
 
-One-time export from the sibling repo:
+Point the frontend at the backend via a Vite env var:
 
 ```bash
-cd ../my-own-mt3
-source venv/bin/activate
-pip install onnx onnxruntime        # for export + quantization
-python export_onnx.py               # writes onnx_out/{piano,guitar}.onnx (+ .int8.onnx)
-cp onnx_out/piano.int8.onnx  ../note-joscaz/public/models/piano.onnx
-cp onnx_out/guitar.int8.onnx ../note-joscaz/public/models/guitar.onnx
+# .env.development (committed default)
+VITE_TRANSCRIBE_API_URL=http://localhost:8000
+
+# .env.production (fill in before `npm run build`)
+VITE_TRANSCRIBE_API_URL=https://your-railway-app.up.railway.app
 ```
 
-If either `public/models/*.onnx` is missing the app gracefully falls back to the mock MIDI so the landing page always renders.
+Run the backend locally:
 
-### What runs in the browser
+```bash
+cd ../note-joscaz-backend
+uvicorn app.main:app --reload --port 8000
+```
 
-1. `AudioContext.decodeAudioData` + `OfflineAudioContext` resample to 16 kHz mono.
-2. `onnxruntime-web` runs the exported graph — which includes `TorchWavToLogmel` + `OnsetsAndVelocities` + `sigmoid` + `F.pad` — chunked at ~20 s with ~2 s overlap so long files don't blow the wasm heap.
-3. The TypeScript port of `OnsetVelocityNmsDecoder` (Gaussian blur + 1-D NMS + velocity averaging) picks peaks.
-4. `@tonejs/midi` assembles a `Midi` object with durations synthesized per pitch (sustain-until-next-onset, clamped).
-
-Preference order for execution providers is WebGPU → WASM SIMD; pick whichever the browser supports.
+If the backend is unreachable the frontend gracefully falls back to mock MIDI so the landing page always renders.
 
 ## Controls
 

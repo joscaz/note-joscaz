@@ -30,7 +30,7 @@ class AudioEngine {
   private masterVolume: Tone.Volume;
 
   private pianoSampler: Tone.Sampler | null = null;
-  private guitarSynth: Tone.PolySynth | null = null;
+  private guitarSampler: Tone.Sampler | null = null;
 
   private scheduledIds: number[] = [];
   private midiNotes: NoteEvent[] = [];
@@ -43,6 +43,14 @@ class AudioEngine {
   private _loop = false;
   private _ready = false;
   private _readyPromise: Promise<void> | null = null;
+
+  // Piano-only: when true, each note is triggered as pure `triggerAttack` and
+  // the Salamander sample decays naturally (model-truthful, onset-only). When
+  // false, each note is `triggerAttackRelease`d with the short cosmetic
+  // duration (clampPianoDurations) for a staccato / sustain-pedal-off feel.
+  // Read at trigger time, not at schedule time, so the toggle takes effect
+  // for both future notes and mid-playback state changes.
+  private _pianoSustain = true;
 
   constructor() {
     this.masterVolume = new Tone.Volume(-4).toDestination();
@@ -82,17 +90,33 @@ class AudioEngine {
         baseUrl: 'https://tonejs.github.io/audio/salamander/',
       }).connect(this.synthGain);
 
-      // Guitar-ish tone via FM synth with distortion for a power-chord feel.
-      const guitarSynth = new Tone.PolySynth(Tone.FMSynth, {
-        harmonicity: 2.4,
-        modulationIndex: 6,
-        envelope: { attack: 0.005, decay: 0.2, sustain: 0.3, release: 0.2 },
-        modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.2 },
-      });
-      const dist = new Tone.Distortion(0.35);
-      const chorus = new Tone.Chorus(3, 1.5, 0.3).start();
-      guitarSynth.chain(dist, chorus, this.synthGain);
-      this.guitarSynth = guitarSynth;
+      // Real acoustic-guitar samples (Nicholas Brosowsky's `tonejs-instruments`
+      // CDN). This matches the backend's GM program 25 "Acoustic Guitar (Steel)"
+      // and — crucially — gives correct timbre across the guitar's actual pitch
+      // range. The previous FM-synth-plus-distortion chain sounded roughly
+      // right on mid-register power chords but wrong on low notes (FM doesn't
+      // model a plucked string's partials or body resonance), and stacked up
+      // IMD on dense transcriptions. A sampler has none of those problems —
+      // each pitch is a real recorded guitar note, pitch-shifted to fill the
+      // gaps between the sampled roots.
+      //
+      // Root set picked to span E2 (low E on a 6-string) through A4 at ~major
+      // third spacing so the largest pitch-shift is <= 2 semitones in either
+      // direction — inaudible on acoustic guitar timbre.
+      this.guitarSampler = new Tone.Sampler({
+        urls: {
+          E2: 'E2.mp3',
+          A2: 'A2.mp3',
+          D3: 'D3.mp3',
+          G3: 'G3.mp3',
+          C4: 'C4.mp3',
+          E4: 'E4.mp3',
+          A4: 'A4.mp3',
+        },
+        release: 0.8,
+        baseUrl:
+          'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/',
+      }).connect(new Tone.Limiter(-3).connect(this.synthGain));
 
       await Tone.loaded();
       this._ready = true;
@@ -138,19 +162,39 @@ class AudioEngine {
     Tone.getTransport().loopEnd = this._duration;
 
     // Schedule synth note triggers.
-    const instrumentRef: Tone.Sampler | Tone.PolySynth | null =
-      instrument === 'piano' ? this.pianoSampler : this.guitarSynth;
+    //
+    // Piano uses pure `triggerAttack` — no duration, no release call. The
+    // Onsets & Velocities model only produces onsets (no note_off), so any
+    // duration we'd pass is fiction. Letting the Salamander sample play to
+    // its own natural tail is exactly how the reference CLI `.mid` sounds
+    // in a DAW with a piano patch, and it's sonically truthful to the model.
+    //
+    // Guitar still uses `triggerAttackRelease` because the guitar backend
+    // computes real, meaningful durations (gap-to-next-same-pitch, capped at
+    // 2 s, sub-50 ms squeak removal) that match the CLI output.
+    const instrumentRef: Tone.Sampler | null =
+      instrument === 'piano' ? this.pianoSampler : this.guitarSampler;
     if (!instrumentRef) return;
 
+    const isPiano = instrument === 'piano';
     for (const n of notes) {
       const id = Tone.getTransport().schedule((time) => {
         try {
-          instrumentRef.triggerAttackRelease(
-            Tone.Frequency(n.midi, 'midi').toNote(),
-            Math.max(0.02, n.duration),
-            time,
-            n.velocity,
-          );
+          const note = Tone.Frequency(n.midi, 'midi').toNote();
+          if (isPiano && this._pianoSustain) {
+            // Sustain on: pure onset, natural sample decay.
+            instrumentRef.triggerAttack(note, time, n.velocity);
+          } else {
+            // Sustain off (piano) *or* guitar: short, bounded release. For
+            // piano this is the UX-clamped cosmetic duration (≤ 0.30 s), for
+            // guitar it's the backend's real smart-sustain duration.
+            instrumentRef.triggerAttackRelease(
+              note,
+              Math.max(0.02, n.duration),
+              time,
+              n.velocity,
+            );
+          }
         } catch {
           // Some samplers throw if asked before loaded; ignore gracefully.
         }
@@ -223,6 +267,21 @@ class AudioEngine {
     Tone.getTransport().loopEnd = this._duration;
   }
 
+  /**
+   * Piano-only. When turning sustain *off* mid-playback we also release any
+   * currently-ringing voices so the existing tail doesn't linger 3–5 s after
+   * the user flipped the switch. Future notes read `_pianoSustain` at their
+   * own trigger time.
+   */
+  setPianoSustain(on: boolean): void {
+    const wasOn = this._pianoSustain;
+    this._pianoSustain = on;
+    if (wasOn && !on && this.pianoSampler) {
+      this.pianoSampler.releaseAll();
+    }
+  }
+  get pianoSustain(): boolean { return this._pianoSustain; }
+
   async play(): Promise<void> {
     await this.ensureStarted();
     if (this.mp3Player && this.mp3Player.state !== 'started') {
@@ -266,14 +325,14 @@ class AudioEngine {
     this.scheduledIds = [];
     // Cancel any still-ringing notes.
     if (this.pianoSampler) this.pianoSampler.releaseAll();
-    if (this.guitarSynth) this.guitarSynth.releaseAll();
+    if (this.guitarSampler) this.guitarSampler.releaseAll();
   }
 
   dispose(): void {
     this.clearScheduled();
     this.mp3Player?.dispose();
     this.pianoSampler?.dispose();
-    this.guitarSynth?.dispose();
+    this.guitarSampler?.dispose();
     this.mp3Gain.dispose();
     this.synthGain.dispose();
     this.masterVolume.dispose();

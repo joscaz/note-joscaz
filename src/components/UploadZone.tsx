@@ -69,7 +69,7 @@ export function UploadZone({
             Drop your audio
           </h2>
           <p className="text-muted max-w-xl mx-auto">
-            MP3, WAV, or any standard format. Everything decodes locally — your audio never leaves the browser.
+            MP3, WAV, or any standard format. Audio is uploaded to the transcription backend and the resulting MIDI is played in your browser.
           </p>
         </div>
 

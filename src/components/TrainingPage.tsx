@@ -54,8 +54,8 @@ export function TrainingPage() {
               Try it on your own audio →
             </div>
             <div className="text-sm text-muted mt-1 max-w-xl">
-              The full transcription pipeline runs in your browser. No uploads
-              to a server, no waiting in a queue.
+              Upload an MP3 and hear the real model transcribe it in a few
+              seconds.
             </div>
           </div>
           <button

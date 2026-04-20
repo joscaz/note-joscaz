@@ -34,7 +34,7 @@ export function PianoTraining() {
           and the results are frankly surprising: at only{' '}
           <Strong>~260k parameters</Strong> it gets within striking distance of
           Google Magenta's Onsets-and-Frames on MAESTRO — while being small
-          enough to run inside a browser tab.
+          enough to run comfortably on a CPU.
         </P>
 
         <StatRow
@@ -277,13 +277,6 @@ ONS+VEL (t=0.74, s=-0.01)  0.962538   0.928580  0.945033`}
           <Code>ONS+VEL</Code> row counts a note as correct only if both the
           onset time (±50 ms) <em>and</em> the velocity (±10%) are right.
         </P>
-
-        <Callout variant="piano" title="Why this matters for the browser">
-          Because the model is ~260k parameters, the exported ONNX file is a
-          few megabytes. That's what makes it realistic to download on first
-          page load and run client-side via <Code>onnxruntime-web</Code> with
-          WebGPU fallback to WASM — which is exactly what NoteJoscaz does.
-        </Callout>
       </Section>
     </div>
   );

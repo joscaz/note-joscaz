@@ -1,147 +1,237 @@
 /**
- * Fully-client-side transcription pipeline powered by onnxruntime-web.
+ * Backend-driven transcription pipeline.
  *
  * Pipeline:
- *   File                                     (browser <input type=file>)
- *     -> AudioContext.decodeAudioData         (audioPrep)
- *     -> OfflineAudioContext resample to 16k  (audioPrep)
- *     -> chunked InferenceSession.run         (chunker)
- *     -> NMS peak picking + velocity gather   (decoder)
- *     -> @tonejs/midi Midi object             (midiBuilder)
+ *   File (browser <input type=file>)
+ *     -> multipart POST ${VITE_TRANSCRIBE_API_URL}/transcribe/{instrument}
+ *     -> audio/midi bytes
+ *     -> new Midi(Uint8Array)
+ *     -> TranscriptionResult
  *
- * The ONNX graph itself bakes in `TorchWavToLogmel`, so the browser just
- * feeds raw 16 kHz mono samples and gets `(onsets, velocities)` back — no
- * STFT/mel port on our side. See `my-own-mt3/export_onnx.py` for the
- * Python export script, and `public/models/README.md` for where the
- * `.onnx` files live.
+ * The real model lives in the `note-joscaz-backend` FastAPI service (PyTorch
+ * Onsets & Velocities, vendored from the original training repo). We hit it
+ * with the raw upload and get a playable `.mid` back.
  *
- * Demo/fallback: if no `file` is provided we return the mock MIDI so the
- * landing-page teaser still animates end-to-end.
+ * Demo/fallback: if no `file` is provided, or the backend is unreachable / a
+ * request fails, we return the mock MIDI so the landing-page teaser still
+ * animates end-to-end and the UI never dead-ends.
  */
 
 import { Midi } from '@tonejs/midi';
 import type { InstrumentType } from '../utils/noteColors';
 import { generateMockMidi } from '../utils/mockMidi';
 
-import { fileToMono16k, audioBufferToMono16k } from './onnx/audioPrep';
-import { getSession, type LoadProgressCallback } from './onnx/session';
-import { runChunked } from './onnx/chunker';
-import {
-  decodeNms,
-  GUITAR_DECODE_OPTIONS,
-  PIANO_DECODE_OPTIONS,
-  type DecodeOptions,
-} from './onnx/decoder';
-import { buildMidi } from './onnx/midiBuilder';
-
-/**
- * Per-instrument decoder presets. These mirror the two reference scripts under
- * `InsiderFM_Services/apps/audio-transcription-model/instruments/<name>/inference.py`:
- *
- * - **piano**: Gaussian-blurred probs + equal-to-max NMS + 3-frame velocity mean.
- * - **guitar**: raw probs + strict local-max peaks + single-frame velocity read.
- */
-const DECODE_OPTIONS_BY_INSTRUMENT: Record<InstrumentType, DecodeOptions> = {
-  piano: PIANO_DECODE_OPTIONS,
-  guitar: GUITAR_DECODE_OPTIONS,
-};
+const API_BASE: string =
+  (import.meta.env.VITE_TRANSCRIBE_API_URL as string | undefined) ??
+  'http://localhost:8000';
 
 export interface TranscriptionResult {
   midi: Midi;
   bpm: number;
   timeSignature: [number, number];
   instrumentType: InstrumentType;
-  /** `true` if the result came from the real ONNX model, `false` if mock. */
+  /** `true` if the MIDI came from the real backend, `false` if mock. */
   real: boolean;
 }
 
 export interface TranscribeOptions {
   /** Called with a 0..1 progress value so the UI can drive its progress bar. */
   onProgress?: (progress: number, stage: string) => void;
-  /** Called while the model `.onnx` file is downloading (first run only). */
-  onModelLoad?: LoadProgressCallback;
   /** Original audio file — required for real inference. */
   file?: File;
 }
 
-const STAGES = [
-  'Decoding audio',
-  'Loading model',
-  'Running model',
-  'Picking peaks',
-  'Building MIDI',
-] as const;
+const STAGES = ['Uploading', 'Transcribing on server', 'Building MIDI'] as const;
+
+export function getPipelineStages(): readonly string[] {
+  return STAGES;
+}
 
 export async function transcribe(
   audioBuffer: AudioBuffer | null,
   instrument: InstrumentType,
   opts: TranscribeOptions = {},
 ): Promise<TranscriptionResult> {
-  const { onProgress, onModelLoad, file } = opts;
+  const { onProgress, file } = opts;
 
-  if (!file && !audioBuffer) {
+  if (!file) {
     // Pure demo path: staged animation + mock MIDI.
     return mockTranscribe(instrument, onProgress);
   }
 
   try {
-    // --- 1. Audio prep --------------------------------------------------
-    emitProgress(onProgress, 0, 0);
-    const wave = file
-      ? await fileToMono16k(file)
-      : await audioBufferToMono16k(audioBuffer as AudioBuffer);
-    emitProgress(onProgress, 0, 1);
-
-    // --- 2. Session (first-run download) --------------------------------
-    emitProgress(onProgress, 1, 0);
-    const session = await getSession(instrument, (status) => {
-      onModelLoad?.(status);
-      emitProgress(onProgress, 1, status.progress);
-    });
-    emitProgress(onProgress, 1, 1);
-
-    // --- 3. Inference ---------------------------------------------------
-    const { onsets, velocities, frames, framePeriodSec } = await runChunked(
-      session,
-      wave,
-      (p) => emitProgress(onProgress, 2, p),
+    const midiBytes = await uploadAndTranscribe(
+      file,
+      instrument,
+      audioBuffer?.duration,
+      onProgress,
     );
 
-    // --- 4. Decode ------------------------------------------------------
-    emitProgress(onProgress, 3, 0);
-    const events = decodeNms(
-      onsets,
-      velocities,
-      frames,
-      DECODE_OPTIONS_BY_INSTRUMENT[instrument],
-    );
-    emitProgress(onProgress, 3, 1);
-
-    // --- 5. MIDI --------------------------------------------------------
-    emitProgress(onProgress, 4, 0);
-    const midi = buildMidi(events, framePeriodSec, instrument);
+    // Stage 2: parse the MIDI bytes.
+    emitProgress(onProgress, 2, 0);
+    const midi = new Midi(new Uint8Array(midiBytes));
+    if (instrument === 'piano') {
+      clampPianoDurations(midi);
+    }
+    emitProgress(onProgress, 2, 1);
     onProgress?.(1, 'Complete');
 
     return {
       midi,
       bpm: midi.header.tempos[0]?.bpm ?? 120,
       timeSignature:
-        (midi.header.timeSignatures[0]?.timeSignature as [number, number]) ?? [4, 4],
+        (midi.header.timeSignatures[0]?.timeSignature as [number, number]) ?? [
+          4,
+          4,
+        ],
       instrumentType: instrument,
       real: true,
     };
   } catch (err) {
-    // Model missing / browser missing WebAssembly / etc. — fall back so the
-    // demo never dead-ends.
     console.warn(
-      '[NoteJoscaz] ONNX transcription failed, falling back to mock:',
+      '[NoteJoscaz] Backend transcription failed, falling back to mock:',
       err,
     );
     return mockTranscribe(instrument, onProgress);
   }
 }
 
-/* -------------------------------- Mock path -------------------------------- */
+/* ------------------------- piano duration clean-up ------------------------ */
+
+/**
+ * Piano durations are **UX-only** in this app.
+ *
+ * The Onsets & Velocities model emits onsets, not note_offs, so any duration
+ * attached to a piano note is synthesized downstream (the backend's
+ * `?mode=web` path uses hold-until-next-same-pitch capped at 4 s so that
+ * `@tonejs/midi` can parse the track at all).
+ *
+ * The *audio path ignores `note.duration` for piano entirely* —
+ * `audioEngine.loadMidi` triggers each piano note with `triggerAttack` and
+ * lets the Salamander sample's own tail play out. That's what a DAW does
+ * with the CLI `note_on`-only `.mid` and it's sonically truthful to the
+ * model (no fabricated sustain). See the scheduling loop in `audioEngine.ts`.
+ *
+ * We still need *some* duration for the UI, because:
+ *   1. the piano roll draws each note as a falling bar of height
+ *      `duration * scrollSpeed`, so `duration === 0` is invisible;
+ *   2. the keyboard "glow" under the hit line treats a key as active for
+ *      `[time, time + duration]`.
+ *
+ * The backend's 4 s cap is way too long for either purpose (bars tower off
+ * the canvas, keys glow for seconds after a tap). Here we re-derive a short
+ * cosmetic duration: gap-to-next-same-pitch onset capped at 0.30 s.
+ * *Nothing in the audio path reads these numbers.*
+ */
+const PIANO_MAX_DURATION_SEC = 0.30;
+const PIANO_RELEASE_GAP_SEC = 0.02; // leave a tiny gap before re-triggering the same pitch
+
+function clampPianoDurations(midi: Midi): void {
+  const buckets = new Map<number, { time: number; setDuration: (d: number) => void }[]>();
+  for (const track of midi.tracks) {
+    for (const note of track.notes) {
+      const arr = buckets.get(note.midi) ?? [];
+      arr.push({
+        time: note.time,
+        setDuration: (d: number) => {
+          note.duration = d;
+        },
+      });
+      buckets.set(note.midi, arr);
+    }
+  }
+
+  for (const entries of buckets.values()) {
+    entries.sort((a, b) => a.time - b.time);
+    for (let i = 0; i < entries.length; i++) {
+      const cur = entries[i];
+      const next = entries[i + 1];
+      const gap = next ? next.time - cur.time - PIANO_RELEASE_GAP_SEC : PIANO_MAX_DURATION_SEC;
+      cur.setDuration(Math.max(0.02, Math.min(PIANO_MAX_DURATION_SEC, gap)));
+    }
+  }
+}
+
+/* -------------------------- backend request helper ------------------------ */
+
+function uploadAndTranscribe(
+  file: File,
+  instrument: InstrumentType,
+  audioDurationSec: number | undefined,
+  onProgress: TranscribeOptions['onProgress'],
+): Promise<ArrayBuffer> {
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+
+    const xhr = new XMLHttpRequest();
+    // `mode=web` asks the backend to emit explicit note_on/note_off pairs so
+    // @tonejs/midi can parse playable notes. Without this, piano tracks come
+    // back as note_on-only (DAW-friendly but parses to 0 notes in-browser).
+    xhr.open('POST', `${API_BASE}/transcribe/${instrument}?mode=web`);
+    xhr.responseType = 'arraybuffer';
+
+    // --- Stage 1: fake progress while we wait for the server ---
+    // The backend doesn't stream progress; estimate how long inference takes
+    // (CPU Onsets & Velocities runs roughly at ~4x realtime on modern
+    // hardware). Tween 0 → 0.9 over `estimateSec`, then hold until the
+    // response lands.
+    let tweenTimer: ReturnType<typeof setInterval> | null = null;
+    const startTweening = () => {
+      const estimateSec = clamp((audioDurationSec ?? 30) * 0.25, 3, 30);
+      const startedAt = performance.now();
+      tweenTimer = setInterval(() => {
+        const elapsed = (performance.now() - startedAt) / 1000;
+        const frac = Math.min(0.9, elapsed / estimateSec);
+        emitProgress(onProgress, 1, frac);
+      }, 200);
+    };
+    const stopTweening = () => {
+      if (tweenTimer !== null) {
+        clearInterval(tweenTimer);
+        tweenTimer = null;
+      }
+    };
+
+    // --- Stage 0: upload progress (real bytes sent) ---
+    emitProgress(onProgress, 0, 0);
+    xhr.upload.onprogress = (ev) => {
+      if (!ev.lengthComputable) return;
+      emitProgress(onProgress, 0, ev.loaded / ev.total);
+    };
+    xhr.upload.onload = () => {
+      emitProgress(onProgress, 0, 1);
+      emitProgress(onProgress, 1, 0);
+      startTweening();
+    };
+
+    xhr.onload = () => {
+      stopTweening();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        emitProgress(onProgress, 1, 1);
+        resolve(xhr.response as ArrayBuffer);
+      } else {
+        reject(
+          new Error(
+            `Backend returned ${xhr.status} ${xhr.statusText || ''}`.trim(),
+          ),
+        );
+      }
+    };
+    xhr.onerror = () => {
+      stopTweening();
+      reject(new Error('Network error contacting transcription backend'));
+    };
+    xhr.onabort = () => {
+      stopTweening();
+      reject(new Error('Upload aborted'));
+    };
+
+    xhr.send(form);
+  });
+}
+
+/* -------------------------------- Mock path ------------------------------- */
 
 async function mockTranscribe(
   instrument: InstrumentType,
@@ -159,7 +249,10 @@ async function mockTranscribe(
     midi,
     bpm: midi.header.tempos[0]?.bpm ?? 120,
     timeSignature:
-      (midi.header.timeSignatures[0]?.timeSignature as [number, number]) ?? [4, 4],
+      (midi.header.timeSignatures[0]?.timeSignature as [number, number]) ?? [
+        4,
+        4,
+      ],
     instrumentType: instrument,
     real: false,
   };
@@ -178,8 +271,8 @@ function emitProgress(
   onProgress(Math.min(overall, 0.99), STAGES[stageIdx]);
 }
 
-export function getPipelineStages(): readonly string[] {
-  return STAGES;
+function clamp(x: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, x));
 }
 
 function wait(ms: number): Promise<void> {

@@ -13,6 +13,7 @@ interface PlayerApi {
   volume: number;
   loop: boolean;
   source: AudioSource;
+  pianoSustain: boolean;
   toggle: () => Promise<void>;
   restart: () => void;
   seek: (s: number) => void;
@@ -21,6 +22,7 @@ interface PlayerApi {
   setVolume: (v: number) => void;
   setLoop: (l: boolean) => void;
   setSource: (s: AudioSource) => void;
+  setPianoSustain: (on: boolean) => void;
 }
 
 interface PlaybackControlsProps {
@@ -151,6 +153,28 @@ export function PlaybackControls({
         >
           Loop
         </button>
+
+        {/* Piano-only: sustain toggle. The transcription model emits only
+            onsets, so any "sustain" is synthesized on playback. On = let
+            each sample decay naturally (rich, piano-y). Off = cut each note
+            at the short UX duration for a staccato / pedal-up feel. */}
+        {instrument === 'piano' && (
+          <button
+            onClick={() => player.setPianoSustain(!player.pianoSustain)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-colors ${
+              player.pianoSustain
+                ? 'bg-white/10 border-white/30 text-text'
+                : 'border-white/10 text-muted hover:text-text hover:border-white/20'
+            }`}
+            title={
+              player.pianoSustain
+                ? 'Sustain ON — notes ring out naturally'
+                : 'Sustain OFF — staccato / pedal-up'
+            }
+          >
+            Sustain
+          </button>
+        )}
 
         {/* A/B source switch */}
         <ABSwitch value={player.source} onChange={player.setSource} color={grad.top} />

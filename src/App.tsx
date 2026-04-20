@@ -92,9 +92,9 @@ function LandingPage() {
       setIsReal(result.real);
       audioEngine.loadMidi(result.midi, instrument);
       audioEngine.setBpm(result.bpm);
-      // When the ONNX model succeeds and we have an original file, default to
-      // A/B so the user hears original + synth side by side. Otherwise
-      // (mock path) synth-only.
+      // When the backend returns real MIDI and we have an original file,
+      // default to A/B so the user hears original + synth side by side.
+      // Otherwise (mock fallback path) synth-only.
       audioEngine.setSource(result.real ? 'both' : 'synth');
       audioEngine.restart();
       await new Promise((r) => setTimeout(r, 350));

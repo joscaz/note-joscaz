@@ -355,21 +355,13 @@ for i, t in enumerate(valid_onsets):
             F1. It correlates well, but it's not the same metric the piano
             paper reports, so the numbers here aren't directly comparable.
           </li>
-          <li>
-            <Strong>ONNX export is a feature-subset of the real model.</Strong>{' '}
-            The in-browser model is an ONNX export of the PyTorch checkpoint.
-            Export flattens a few custom pieces (padding modes, the last
-            onset-stage selection) which means the browser predictions can
-            drift very slightly from what the original <Code>.torch</Code>{' '}
-            file would output in Python.
-          </li>
         </List>
       </Section>
 
       <Section
         id="guitar-future"
         eyebrow="Future work"
-        title="Better hardware, native weights, maybe a backend."
+        title="Better hardware, more data."
         accent="guitar"
       >
         <List>
@@ -381,15 +373,6 @@ for i, t in enumerate(valid_onsets):
             ceiling. I expect a non-trivial jump in val loss and in
             transcription quality, especially for fast passages where the
             current model occasionally misses closely-spaced onsets.
-          </li>
-          <li>
-            <Strong>Ship the raw <Code>.torch</Code> via a small backend.</Strong>{' '}
-            The long-term plan is to stand up a thin inference service that
-            loads the exact same PyTorch checkpoint the training loop saves,
-            instead of the ONNX export the browser uses today. That removes
-            the "feature-subset" caveat above, unlocks batched inference for
-            longer files, and makes swapping in new checkpoints a one-line
-            deploy rather than a re-export.
           </li>
           <li>
             <Strong>Proper F1-based validation.</Strong> Re-hydrate the JAMS

@@ -59,7 +59,7 @@ export function Visualizer({ midi, instrument, fileName, isRealTranscription }: 
           )}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <BackendStatus isRealResult={isRealTranscription} instrument={instrument} />
+          <BackendStatus isRealResult={isRealTranscription} />
           <div className="text-right font-mono text-xs text-muted space-y-0.5">
             <div>Notes: <span className="text-text">{notes.length}</span></div>
             <div>Tracks: <span className="text-text">{midi.tracks.length}</span></div>

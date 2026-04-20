@@ -10,6 +10,7 @@ export interface UseAudioPlayerState {
   volume: number;
   loop: boolean;
   source: AudioSource;
+  pianoSustain: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ export function useAudioPlayer(): UseAudioPlayerState & {
   setVolume: (v: number) => void;
   setLoop: (loop: boolean) => void;
   setSource: (s: AudioSource) => void;
+  setPianoSustain: (on: boolean) => void;
 } {
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -36,6 +38,7 @@ export function useAudioPlayer(): UseAudioPlayerState & {
   const [volume, setVolumeState] = useState(0.85);
   const [loop, setLoopState] = useState(audioEngine.loop);
   const [source, setSourceState] = useState<AudioSource>(audioEngine.getSource());
+  const [pianoSustain, setPianoSustainState] = useState<boolean>(audioEngine.pianoSustain);
 
   const rafRef = useRef<number | null>(null);
   useEffect(() => {
@@ -70,9 +73,13 @@ export function useAudioPlayer(): UseAudioPlayerState & {
   const setVolume = useCallback((v: number) => { audioEngine.setVolume(v); setVolumeState(v); }, []);
   const setLoop = useCallback((l: boolean) => { audioEngine.setLoop(l); setLoopState(l); }, []);
   const setSource = useCallback((s: AudioSource) => { audioEngine.setSource(s); setSourceState(s); }, []);
+  const setPianoSustain = useCallback((on: boolean) => {
+    audioEngine.setPianoSustain(on);
+    setPianoSustainState(on);
+  }, []);
 
   return {
-    isPlaying, currentTime, duration, bpm, volume, loop, source,
-    play, pause, toggle, stop, restart, seek, seekBy, setBpm, setVolume, setLoop, setSource,
+    isPlaying, currentTime, duration, bpm, volume, loop, source, pianoSustain,
+    play, pause, toggle, stop, restart, seek, seekBy, setBpm, setVolume, setLoop, setSource, setPianoSustain,
   };
 }
