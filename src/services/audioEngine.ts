@@ -12,6 +12,7 @@ type NoteEvent = {
 };
 
 type ActiveNotesListener = (activeMidis: Set<number>, transportTime: number) => void;
+type StateListener = () => void;
 
 /**
  * Single audio engine that drives both the original MP3 (Tone.Player) and the
@@ -36,6 +37,7 @@ class AudioEngine {
   private midiNotes: NoteEvent[] = [];
   private activeMidis = new Set<number>();
   private listeners = new Set<ActiveNotesListener>();
+  private stateListeners = new Set<StateListener>();
   private activeTickerId: number | null = null;
 
   private source: AudioSource = 'synth';
@@ -238,7 +240,18 @@ class AudioEngine {
 
   /** A/B source switch with a short gain ramp to avoid clicks. */
   setSource(source: AudioSource): void {
+    if (this.source === source) {
+      // Still re-apply gains in case something (e.g. a prior reload) left
+      // them inconsistent, but don't re-notify listeners unnecessarily.
+      this.applySourceGains(source);
+      return;
+    }
     this.source = source;
+    this.applySourceGains(source);
+    this.emitState();
+  }
+
+  private applySourceGains(source: AudioSource): void {
     const ramp = 0.06;
     const now = Tone.now();
     const mp3 = source === 'mp3' || source === 'both' ? 1 : 0;
@@ -258,6 +271,7 @@ class AudioEngine {
 
   setBpm(bpm: number): void {
     Tone.getTransport().bpm.rampTo(bpm, 0.05);
+    this.emitState();
   }
 
   setLoop(loop: boolean): void {
@@ -265,6 +279,7 @@ class AudioEngine {
     Tone.getTransport().loop = loop;
     Tone.getTransport().loopStart = 0;
     Tone.getTransport().loopEnd = this._duration;
+    this.emitState();
   }
 
   /**
@@ -274,13 +289,31 @@ class AudioEngine {
    * own trigger time.
    */
   setPianoSustain(on: boolean): void {
+    if (this._pianoSustain === on) return;
     const wasOn = this._pianoSustain;
     this._pianoSustain = on;
     if (wasOn && !on && this.pianoSampler) {
       this.pianoSampler.releaseAll();
     }
+    this.emitState();
   }
   get pianoSustain(): boolean { return this._pianoSustain; }
+
+  /**
+   * Subscribe to engine state changes (source, bpm, loop, pianoSustain). The
+   * hook layer listens to this so React state always tracks the engine, even
+   * when app-level code (e.g. post-transcription in App.tsx) mutates the
+   * engine directly. This is what keeps the A/B switch UI honest — without
+   * it, the button can say "MIDI" while gains are actually on A/B.
+   */
+  onStateChange(listener: StateListener): () => void {
+    this.stateListeners.add(listener);
+    return () => { this.stateListeners.delete(listener); };
+  }
+
+  private emitState(): void {
+    for (const l of this.stateListeners) l();
+  }
 
   async play(): Promise<void> {
     await this.ensureStarted();

@@ -54,7 +54,23 @@ export function useAudioPlayer(): UseAudioPlayerState & {
     };
   }, []);
 
-  // Apply initial volume once.
+  // Track engine state so that any direct engine mutation (e.g. App.tsx
+  // setting the source to 'both' after a successful transcription, or
+  // pushing a new BPM from the model) stays reflected in the UI. Without
+  // this subscription, the A/B switch could display "MIDI" while the
+  // engine is actually mixing both tracks — the exact symptom of the
+  // "I selected MIDI but hear A/B" bug.
+  useEffect(() => {
+    const sync = () => {
+      setSourceState(audioEngine.getSource());
+      setBpmState(Tone.getTransport().bpm.value);
+      setLoopState(audioEngine.loop);
+      setPianoSustainState(audioEngine.pianoSustain);
+    };
+    sync();
+    return audioEngine.onStateChange(sync);
+  }, []);
+
   useEffect(() => {
     audioEngine.setVolume(volume);
   }, [volume]);
@@ -69,14 +85,14 @@ export function useAudioPlayer(): UseAudioPlayerState & {
   const restart = useCallback(() => { audioEngine.restart(); }, []);
   const seek = useCallback((seconds: number) => { audioEngine.seek(seconds); }, []);
   const seekBy = useCallback((delta: number) => { audioEngine.seekBy(delta); }, []);
-  const setBpm = useCallback((v: number) => { audioEngine.setBpm(v); setBpmState(v); }, []);
+  // These setters write to the engine; the onStateChange subscription above
+  // then pulls the new value back into React state, so we don't need to set
+  // local state here too (and risk drifting from the engine's truth).
+  const setBpm = useCallback((v: number) => { audioEngine.setBpm(v); }, []);
   const setVolume = useCallback((v: number) => { audioEngine.setVolume(v); setVolumeState(v); }, []);
-  const setLoop = useCallback((l: boolean) => { audioEngine.setLoop(l); setLoopState(l); }, []);
-  const setSource = useCallback((s: AudioSource) => { audioEngine.setSource(s); setSourceState(s); }, []);
-  const setPianoSustain = useCallback((on: boolean) => {
-    audioEngine.setPianoSustain(on);
-    setPianoSustainState(on);
-  }, []);
+  const setLoop = useCallback((l: boolean) => { audioEngine.setLoop(l); }, []);
+  const setSource = useCallback((s: AudioSource) => { audioEngine.setSource(s); }, []);
+  const setPianoSustain = useCallback((on: boolean) => { audioEngine.setPianoSustain(on); }, []);
 
   return {
     isPlaying, currentTime, duration, bpm, volume, loop, source, pianoSustain,
