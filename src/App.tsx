@@ -6,6 +6,8 @@ import { ProcessingOverlay } from './components/ProcessingOverlay';
 import { Visualizer } from './components/Visualizer';
 import { Footer } from './components/Footer';
 import { DesktopGate } from './components/DesktopGate';
+import { TrainingPage } from './components/TrainingPage';
+import { useHashRoute } from './hooks/useHashRoute';
 import { decodeAudioFile } from './services/audioDecoder';
 import { transcribe } from './services/transcriptionService';
 import { audioEngine } from './services/audioEngine';
@@ -13,6 +15,18 @@ import { generateMockMidi } from './utils/mockMidi';
 import type { InstrumentType } from './utils/noteColors';
 
 export default function App() {
+  const route = useHashRoute();
+  if (route.startsWith('/training')) {
+    return (
+      <DesktopGate>
+        <TrainingPage />
+      </DesktopGate>
+    );
+  }
+  return <LandingPage />;
+}
+
+function LandingPage() {
   const [instrument, setInstrument] = useState<InstrumentType>('piano');
   const [file, setFile] = useState<File | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);

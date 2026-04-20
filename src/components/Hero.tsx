@@ -32,7 +32,7 @@ export function Hero({ onCtaClick }: HeroProps) {
         </motion.p>
 
         <motion.div
-          className="relative"
+          className="relative flex flex-col md:flex-row items-center gap-4 md:gap-5"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
@@ -43,6 +43,13 @@ export function Hero({ onCtaClick }: HeroProps) {
           >
             Upload Audio →
           </button>
+          <a
+            href="#/training"
+            className="group text-xs md:text-sm font-mono uppercase tracking-[0.25em] text-muted hover:text-text transition-colors flex items-center gap-2"
+          >
+            How it was built
+            <span className="transition-transform group-hover:translate-x-1">→</span>
+          </a>
         </motion.div>
 
         <div className="mt-8 grid grid-cols-3 gap-6 md:gap-10 text-center text-xs font-mono text-muted uppercase tracking-wider">
