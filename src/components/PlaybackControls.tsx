@@ -137,7 +137,22 @@ export function PlaybackControls({
         <div className="h-6 w-px bg-white/10" />
 
         {/* Volume */}
-        <VolumeKnob value={player.volume} onChange={player.setVolume} color={grad.top} />
+        <label className="flex items-center gap-2 text-xs font-mono text-muted">
+          <span>VOL</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={player.volume}
+            onChange={(e) => player.setVolume(parseFloat(e.target.value))}
+            className="w-32 accent-[color:var(--accent)]"
+            style={{ ['--accent' as string]: grad.top } as React.CSSProperties}
+            title="Volume"
+            aria-label="Volume"
+          />
+          <span className="tabular-nums w-8 text-text">{Math.round(player.volume * 100)}</span>
+        </label>
 
         <div className="h-6 w-px bg-white/10" />
 
@@ -229,63 +244,6 @@ function ControlButton({ children, onClick, title }: { children: React.ReactNode
     >
       {children}
     </button>
-  );
-}
-
-function VolumeKnob({ value, onChange, color }: { value: number; onChange: (v: number) => void; color: string }) {
-  const size = 40;
-  const stroke = 3;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c * (1 - value);
-
-  const startDrag = (e: React.PointerEvent<SVGSVGElement>) => {
-    e.preventDefault();
-    const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
-    const startY = e.clientY;
-    const startVal = value;
-    const move = (ev: PointerEvent) => {
-      const dy = startY - ev.clientY;
-      onChange(Math.max(0, Math.min(1, startVal + dy / 120)));
-    };
-    const up = (ev: PointerEvent) => {
-      el.releasePointerCapture(ev.pointerId);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
-
-  return (
-    <div className="flex items-center gap-2 text-xs font-mono text-muted select-none">
-      <span>VOL</span>
-      <svg
-        width={size}
-        height={size}
-        onPointerDown={startDrag}
-        onWheel={(e) => onChange(Math.max(0, Math.min(1, value - e.deltaY / 1000)))}
-        className="cursor-pointer"
-      >
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke={color}
-          strokeWidth={stroke}
-          fill="none"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          style={{ filter: `drop-shadow(0 0 6px ${color})` }}
-        />
-        <circle cx={size / 2} cy={size / 2} r={4} fill={color} />
-      </svg>
-      <span className="w-8 tabular-nums text-text">{Math.round(value * 100)}</span>
-    </div>
   );
 }
 
