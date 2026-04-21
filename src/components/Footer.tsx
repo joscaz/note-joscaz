@@ -10,7 +10,7 @@ export function Footer() {
         </div>
         <nav className="flex gap-6 text-xs font-mono uppercase tracking-wider text-muted">
           <a href="#/training" className="hover:text-text transition-colors">How it was built</a>
-          <a href="https://github.com/andres-fr/iamusica_training" target="_blank" rel="noreferrer" className="hover:text-text transition-colors">GitHub</a>
+          <a href="https://github.com/joscaz/note-joscaz" target="_blank" rel="noreferrer" className="hover:text-text transition-colors">GitHub</a>
           <a href="#/" className="hover:text-text transition-colors">Demo</a>
         </nav>
         <div className="text-[10px] text-muted font-mono">
