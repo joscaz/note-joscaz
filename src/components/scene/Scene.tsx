@@ -1,17 +1,22 @@
 import { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Piano, type PianoHandle } from './Piano';
+import { FallingBars } from './FallingBars';
+import { PostFX } from './PostFX';
 import type { InstrumentType } from '../../utils/noteColors';
+import type { NoteEvent } from '../../services/audioEngine';
 
 interface SceneProps {
   instrument: InstrumentType;
+  notes: readonly NoteEvent[];
+  scrollSpeed: number;
 }
 
 /**
  * Top-level r3f scene. Camera is intentionally locked (cinematic Rousseau
  * framing); orbit controls are not mounted by default.
  */
-export function Scene({ instrument }: SceneProps) {
+export function Scene({ instrument, notes, scrollSpeed }: SceneProps) {
   const [pianoHandle, setPianoHandle] = useState<PianoHandle | null>(null);
 
   return (
@@ -38,8 +43,16 @@ export function Scene({ instrument }: SceneProps) {
         <Piano instrument={instrument} onReady={setPianoHandle} />
       </Suspense>
 
-      {/* FallingBars, Particles, PostFX mount here once pianoHandle resolves. */}
-      {pianoHandle && null}
+      {pianoHandle && notes.length > 0 && (
+        <FallingBars
+          notes={notes}
+          pianoHandle={pianoHandle}
+          instrument={instrument}
+          scrollSpeed={scrollSpeed}
+        />
+      )}
+
+      <PostFX />
     </Canvas>
   );
 }

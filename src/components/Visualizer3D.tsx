@@ -17,7 +17,10 @@ interface Visualizer3DProps {
 
 export function Visualizer3D({ midi, instrument, fileName, isRealTranscription }: Visualizer3DProps) {
   const player = useAudioPlayer();
-  const [scrollSpeed, setScrollSpeed] = useState(5); // units/second in scene space
+  // Slider value kept in legacy "px/sec" range (80..600) for PlaybackControls
+  // compatibility; converted to scene-space units/sec before reaching FallingBars.
+  const [scrollSpeed, setScrollSpeed] = useState(220);
+  const sceneScrollSpeed = scrollSpeed / 50;
 
   const notes = useMemo<NoteEvent[]>(() => {
     const out: NoteEvent[] = [];
@@ -62,7 +65,7 @@ export function Visualizer3D({ midi, instrument, fileName, isRealTranscription }
 
       <div className="glass rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
         <div style={{ height: '70vh', minHeight: 600 }}>
-          <Scene instrument={instrument} />
+          <Scene instrument={instrument} notes={notes} scrollSpeed={sceneScrollSpeed} />
         </div>
       </div>
 
