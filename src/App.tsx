@@ -4,6 +4,7 @@ import { Hero } from './components/Hero';
 import { UploadZone } from './components/UploadZone';
 import { ProcessingOverlay } from './components/ProcessingOverlay';
 import { Visualizer } from './components/Visualizer';
+import { Visualizer3D } from './components/Visualizer3D';
 import { Footer } from './components/Footer';
 import { DesktopGate } from './components/DesktopGate';
 import { TrainingPage } from './components/TrainingPage';
@@ -27,6 +28,13 @@ export default function App() {
 }
 
 function LandingPage() {
+  // Feature flag: ?v=3d (or hash #v=3d) swaps in the WebGL visualizer.
+  const use3D =
+    typeof window !== 'undefined' &&
+    (new URLSearchParams(window.location.search).get('v') === '3d' ||
+      window.location.hash.includes('v=3d'));
+  const VisualizerComponent = use3D ? Visualizer3D : Visualizer;
+
   const [instrument, setInstrument] = useState<InstrumentType>('piano');
   const [file, setFile] = useState<File | null>(null);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
@@ -128,7 +136,7 @@ function LandingPage() {
 
         <div ref={visualizerRef} className="py-10 md:py-16">
           {midi ? (
-            <Visualizer
+            <VisualizerComponent
               midi={midi}
               instrument={instrument}
               fileName={file?.name ?? 'Demo · Mock MIDI'}
