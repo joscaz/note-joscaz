@@ -4,12 +4,12 @@ import type { Group, Mesh } from 'three';
 import { Box3, Color, MeshStandardMaterial, Vector3 } from 'three';
 import { generatePianoKeys, type PianoKeyRef } from '../../utils/pianoModelMap';
 import { audioEngine } from '../../services/audioEngine';
-import { NOTE_GRADIENTS, type InstrumentType } from '../../utils/noteColors';
+import { type InstrumentType } from '../../utils/noteColors';
+import { useThemeStore } from '../../services/themeStore';
 
 // Press dynamics (seconds-to-equilibrium time constants).
-const ATTACK_TAU = 0.025;  // fast downstroke
-const RELEASE_TAU = 0.15;  // slower return
-const PRESS_DEPTH_Y = 0.1; // model-space units for key press travel
+const ATTACK_TAU = 0.025;
+const RELEASE_TAU = 0.15;
 
 export interface PianoHandle {
   keys: PianoKeyRef[];
@@ -38,7 +38,10 @@ export function Piano({ instrument, onReady }: PianoProps) {
 
   const keys = useMemo(() => generatePianoKeys(), []);
 
-  // Set up materials and cache the rest Y so press animation returns to true origin.
+  const whiteBase = useThemeStore((s) => s.theme.piano.whiteBase);
+  const blackBase = useThemeStore((s) => s.theme.piano.blackBase);
+  const pressGlow = useThemeStore((s) => s.theme.piano.pressGlow);
+
   const keyStateRef = useRef<
     Array<{
       mesh: Mesh;
@@ -46,18 +49,19 @@ export function Piano({ instrument, onReady }: PianoProps) {
       baseEmissive: Color;
       activeEmissive: Color;
       restY: number;
-      press: number; // 0..1
+      press: number;
     }>
   >([]);
 
   useEffect(() => {
-    // Dispose of previously-owned materials before rebuilding.
     for (const prev of keyStateRef.current) prev.material.dispose();
 
-    const active = new Color(NOTE_GRADIENTS[instrument].top);
+    const active = new Color(pressGlow);
+    const white = new Color(whiteBase);
+    const black = new Color(blackBase);
     keyStateRef.current = keys.map((k) => {
       const mesh = k.object as Mesh;
-      const baseColor = new Color(k.isBlack ? 0x111111 : 0xf5f5f5);
+      const baseColor = k.isBlack ? black.clone() : white.clone();
       const mat = new MeshStandardMaterial({
         color: baseColor,
         roughness: k.isBlack ? 0.35 : 0.45,
@@ -75,9 +79,8 @@ export function Piano({ instrument, onReady }: PianoProps) {
         press: 0,
       };
     });
-  }, [keys, instrument]);
+  }, [keys, instrument, whiteBase, blackBase, pressGlow]);
 
-  // Subscribe to active-notes set; store Set ref for the useFrame loop.
   const activeRef = useRef<Set<number>>(new Set());
   useEffect(() => audioEngine.onActiveNotes((set) => { activeRef.current = set; }), []);
 
@@ -85,6 +88,9 @@ export function Piano({ instrument, onReady }: PianoProps) {
     const active = activeRef.current;
     const state = keyStateRef.current;
     if (state.length === 0) return;
+    const pianoTheme = useThemeStore.getState().theme.piano;
+    const intensity = pianoTheme.pressEmissiveIntensity;
+    const depth = pianoTheme.pressDepth;
     for (let i = 0; i < state.length; i++) {
       const entry = state[i];
       const midi = keys[i].midi;
@@ -93,8 +99,8 @@ export function Piano({ instrument, onReady }: PianoProps) {
       const alpha = 1 - Math.exp(-delta / tau);
       entry.press += (target - entry.press) * alpha;
 
-      entry.mesh.position.y = entry.restY - entry.press * PRESS_DEPTH_Y;
-      entry.material.emissiveIntensity = entry.press * 1.4;
+      entry.mesh.position.y = entry.restY - entry.press * depth;
+      entry.material.emissiveIntensity = entry.press * intensity;
       if (entry.press > 0.01) {
         entry.material.emissive.copy(entry.activeEmissive);
       }
@@ -104,10 +110,9 @@ export function Piano({ instrument, onReady }: PianoProps) {
   useEffect(() => {
     if (!groupRef.current || !onReady) return;
     const group = groupRef.current;
-    
-    // We update world matrices before calculating bounding boxes to ensure accuracy
+
     group.updateMatrixWorld(true);
-    
+
     const bbox = new Box3().setFromObject(group);
     const size = new Vector3();
     bbox.getSize(size);
@@ -115,9 +120,7 @@ export function Piano({ instrument, onReady }: PianoProps) {
     const keyXByMidi = new Map<number, number>();
     const keyYByMidi = new Map<number, number>();
     const keyZByMidi = new Map<number, number>();
-    
-    // Find the back-most Z coordinate of all the *keys*.
-    // +Z is front, -Z is back.
+
     let backOfKeysZ = Infinity;
     const keyBoxes = keys.map(k => new Box3().setFromObject(k.object));
     for (const box of keyBoxes) {

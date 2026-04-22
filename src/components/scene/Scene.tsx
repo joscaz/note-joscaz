@@ -6,6 +6,7 @@ import { Particles } from './Particles';
 import { PostFX } from './PostFX';
 import type { InstrumentType } from '../../utils/noteColors';
 import type { NoteEvent } from '../../services/audioEngine';
+import { useThemeStore } from '../../services/themeStore';
 
 interface SceneProps {
   instrument: InstrumentType;
@@ -15,12 +16,13 @@ interface SceneProps {
 
 function CameraController({ pianoHandle }: { pianoHandle: PianoHandle | null }) {
   const { camera, size } = useThree();
+  const cam = useThemeStore((s) => s.theme.camera);
 
   useEffect(() => {
     if (!pianoHandle || size.width === 0 || size.height === 0) return;
     const aspect = size.width / size.height;
-    
-    const targetWidth = pianoHandle.modelWidth * 1.01; // tight crop
+
+    const targetWidth = pianoHandle.modelWidth * 1.01;
     const targetHeight = targetWidth / aspect;
 
     const orthoCam = camera as any;
@@ -28,28 +30,19 @@ function CameraController({ pianoHandle }: { pianoHandle: PianoHandle | null }) 
       orthoCam.zoom = size.width / targetWidth;
     }
 
-    // Synthesia/Rousseau style: looking mostly straight on, slightly downward.
-    // A higher angle (40 degrees) shows more of the top surface of the keys,
-    // giving them their realistic long length without perspective slant (due to ortho camera).
-    const tiltAngle = 40 * Math.PI / 180;
-    
-    // To place the piano near the bottom of the screen, we look "above" the piano.
-    // The total height of the view is targetHeight. We shift the camera up by ~35% of the height.
-    const offsetY = targetHeight * 0.35;
-    // We must keep distance < 18 to prevent the scene's fog from completely hiding the piano!
-    const distance = 12; 
-    
+    const tiltAngle = cam.tiltDeg * Math.PI / 180;
+    const offsetY = targetHeight * cam.offsetYFrac;
+    const distance = cam.distance;
     const centerX = pianoHandle.modelCenterX;
 
-    // Position the camera relative to this new target
     camera.position.set(
-      centerX, 
-      offsetY + distance * Math.sin(tiltAngle), 
-      distance * Math.cos(tiltAngle)
+      centerX,
+      offsetY + distance * Math.sin(tiltAngle),
+      distance * Math.cos(tiltAngle),
     );
     camera.lookAt(centerX, offsetY, 0);
     camera.updateProjectionMatrix();
-  }, [pianoHandle, size, camera]);
+  }, [pianoHandle, size, camera, cam.tiltDeg, cam.distance, cam.offsetYFrac]);
 
   return null;
 }
@@ -60,6 +53,8 @@ function CameraController({ pianoHandle }: { pianoHandle: PianoHandle | null }) 
  */
 export function Scene({ instrument, notes, scrollSpeed }: SceneProps) {
   const [pianoHandle, setPianoHandle] = useState<PianoHandle | null>(null);
+  const background = useThemeStore((s) => s.theme.background);
+  const fog = useThemeStore((s) => s.theme.fog);
 
   return (
     <Canvas
@@ -70,8 +65,8 @@ export function Scene({ instrument, notes, scrollSpeed }: SceneProps) {
       shadows
     >
       <CameraController pianoHandle={pianoHandle} />
-      <color attach="background" args={['#05060a']} />
-      <fog attach="fog" args={['#05060a', 18, 40]} />
+      <color attach="background" args={[background]} />
+      <fog attach="fog" args={[fog.color, fog.near, fog.far]} />
 
       <ambientLight intensity={0.35} />
       <directionalLight

@@ -1,17 +1,18 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Color, Object3D, type InstancedMesh as ThreeInstancedMesh } from 'three';
+import { Color, Object3D, MeshStandardMaterial, type InstancedMesh as ThreeInstancedMesh } from 'three';
 import * as Tone from 'tone';
 import type { NoteEvent } from '../../services/audioEngine';
-import { NOTE_GRADIENTS, type InstrumentType } from '../../utils/noteColors';
+import { type InstrumentType } from '../../utils/noteColors';
 import { isBlackKey } from '../../utils/musicTheory';
 import type { PianoHandle } from './Piano';
+import { useThemeStore } from '../../services/themeStore';
 
 interface Props {
   notes: readonly NoteEvent[];
   pianoHandle: PianoHandle;
   instrument: InstrumentType;
-  scrollSpeed: number; // scene units per second
+  scrollSpeed: number;
   lookAheadSeconds?: number;
 }
 
@@ -23,29 +24,25 @@ const BAR_DEPTH = 0.22;
  * One InstancedMesh for every note in the song. Each frame we recompute the
  * bar's Y from `Tone.Transport.seconds` so playback pause/scrub/loop all
  * sync automatically — same invariant the 2D roll relied on, lifted to 3D.
- *
- * X and color are static per-note; only the matrix is updated each frame.
- * Bars outside the visible window collapse to scale 0 (no draw cost in the
- * fragment shader but still iterated — swap to a sorted windowed update in
- * the perf pass if note count grows into the tens of thousands).
  */
 export function FallingBars({
   notes,
   pianoHandle,
-  instrument,
   scrollSpeed,
   lookAheadSeconds = 6,
 }: Props) {
   const meshRef = useRef<ThreeInstancedMesh>(null);
+  const materialRef = useRef<MeshStandardMaterial>(null);
   const count = notes.length;
   const dummy = useRef(new Object3D()).current;
 
-  // Per-instance static data — X position + bar width per note.
+  const bars = useThemeStore((s) => s.theme.bars);
+
   const instanceX = useMemo(() => {
     const arr = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       const x = pianoHandle.getKeyXByMidi(notes[i].midi);
-      arr[i] = x ?? -9999; // out-of-range notes parked far off-screen
+      arr[i] = x ?? -9999;
     }
     return arr;
   }, [notes, pianoHandle, count]);
@@ -54,7 +51,6 @@ export function FallingBars({
     const arr = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       const z = pianoHandle.getKeyZByMidi(notes[i].midi);
-      // Fallback to 0 if out of range, though it will be parked offscreen anyway
       arr[i] = z ?? 0;
     }
     return arr;
@@ -77,13 +73,11 @@ export function FallingBars({
     return arr;
   }, [notes, count]);
 
-  // Per-instance color — velocity-modulated lerp between gradient endpoints.
   useLayoutEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    const grad = NOTE_GRADIENTS[instrument];
-    const top = new Color(grad.top);
-    const bottom = new Color(grad.bottom);
+    const top = new Color(bars.colorTop);
+    const bottom = new Color(bars.colorBottom);
     const c = new Color();
     for (let i = 0; i < count; i++) {
       const v = Math.max(0.3, Math.min(1, notes[i].velocity));
@@ -91,7 +85,17 @@ export function FallingBars({
       mesh.setColorAt(i, c);
     }
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [notes, instrument, count]);
+  }, [notes, count, bars.colorTop, bars.colorBottom]);
+
+  useLayoutEffect(() => {
+    const mat = materialRef.current;
+    if (!mat) return;
+    mat.emissive.set(bars.emissiveColor);
+    mat.emissiveIntensity = bars.emissiveIntensity;
+    mat.roughness = bars.roughness;
+    mat.metalness = bars.metalness;
+    mat.needsUpdate = true;
+  }, [bars.emissiveColor, bars.emissiveIntensity, bars.roughness, bars.metalness]);
 
   useFrame(() => {
     const mesh = meshRef.current;
@@ -108,7 +112,6 @@ export function FallingBars({
         dummy.position.set(0, -1000, 0);
         dummy.scale.set(0, 0, 0);
       } else {
-        // Clamp bottomY to the specific key's hit surface so white and black keys align perfectly
         const bottomY = Math.max(hit, hit + dt0 * scrollSpeed);
         const topY = hit + dt1 * scrollSpeed;
         const height = Math.max(0.015, topY - bottomY);
@@ -121,8 +124,6 @@ export function FallingBars({
     mesh.instanceMatrix.needsUpdate = true;
   });
 
-  // Key on count so a different-length MIDI triggers a clean remount
-  // (InstancedMesh capacity is fixed at construction).
   return (
     <instancedMesh
       key={count}
@@ -132,10 +133,11 @@ export function FallingBars({
     >
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial
-        emissive={new Color(NOTE_GRADIENTS[instrument].top)}
-        emissiveIntensity={0.6}
-        roughness={0.3}
-        metalness={0.15}
+        ref={materialRef}
+        emissive={new Color(bars.emissiveColor)}
+        emissiveIntensity={bars.emissiveIntensity}
+        roughness={bars.roughness}
+        metalness={bars.metalness}
         toneMapped={false}
       />
     </instancedMesh>

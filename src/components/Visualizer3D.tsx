@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Midi } from '@tonejs/midi';
 import { Scene } from './scene/Scene';
+import { ThemeControls } from './scene/ThemeControls';
 import { PlaybackControls } from './PlaybackControls';
 import { StatsGrid } from './StatsGrid';
 import { BackendStatus } from './BackendStatus';
@@ -41,6 +42,7 @@ export function Visualizer3D({ midi, instrument, fileName, isRealTranscription }
 
   return (
     <section className="w-full flex flex-col gap-6 px-4 md:px-10">
+      <ThemeControls />
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.4em] text-muted font-mono">
