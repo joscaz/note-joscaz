@@ -86,7 +86,6 @@ export function Scene({ instrument, notes, scrollSpeed }: SceneProps) {
         <FallingBars
           notes={notes}
           pianoHandle={pianoHandle}
-          instrument={instrument}
           scrollSpeed={scrollSpeed}
         />
       )}

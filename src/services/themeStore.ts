@@ -13,7 +13,7 @@ type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]>
 
 function deepMerge<T extends object>(base: T, patch: DeepPartial<T>): T {
   const out: T = { ...base };
-  for (const k in patch) {
+  for (const k of Object.keys(patch) as Array<keyof T>) {
     const pv = patch[k];
     const bv = (base as Record<string, unknown>)[k];
     if (pv && typeof pv === 'object' && !Array.isArray(pv) && bv && typeof bv === 'object') {

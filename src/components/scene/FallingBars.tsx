@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Color, Object3D, MeshStandardMaterial, type InstancedMesh as ThreeInstancedMesh } from 'three';
 import * as Tone from 'tone';
 import type { NoteEvent } from '../../services/audioEngine';
-import { type InstrumentType } from '../../utils/noteColors';
+
 import { isBlackKey } from '../../utils/musicTheory';
 import type { PianoHandle } from './Piano';
 import { useThemeStore } from '../../services/themeStore';
@@ -11,7 +11,6 @@ import { useThemeStore } from '../../services/themeStore';
 interface Props {
   notes: readonly NoteEvent[];
   pianoHandle: PianoHandle;
-  instrument: InstrumentType;
   scrollSpeed: number;
   lookAheadSeconds?: number;
 }

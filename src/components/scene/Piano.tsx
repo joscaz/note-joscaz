@@ -103,6 +103,8 @@ export function Piano({ instrument, onReady }: PianoProps) {
       entry.material.emissiveIntensity = entry.press * intensity;
       if (entry.press > 0.01) {
         entry.material.emissive.copy(entry.activeEmissive);
+      } else {
+        entry.material.emissive.copy(entry.baseEmissive);
       }
     }
   });

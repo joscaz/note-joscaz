@@ -1,4 +1,5 @@
 import { Object3D, Mesh, BoxGeometry, Vector3 } from 'three';
+import { isBlackKey } from './musicTheory';
 
 export const MODEL_MIDI_LOW = 21;   // A0
 export const MODEL_MIDI_HIGH = 108; // C8
@@ -21,10 +22,7 @@ const BLACK_KEY_WIDTH = 0.11;
 const BLACK_KEY_LENGTH = 0.95;
 const BLACK_KEY_HEIGHT = 0.22;
 
-export const isBlackKey = (midi: number) => {
-  const p = midi % 12;
-  return p === 1 || p === 3 || p === 6 || p === 8 || p === 10;
-};
+
 
 const getWhiteKeyIndex = (midi: number) => {
   const oct = Math.floor(midi / 12);
