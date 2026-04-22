@@ -50,6 +50,25 @@ export function FallingBars({
     return arr;
   }, [notes, pianoHandle, count]);
 
+  const instanceZ = useMemo(() => {
+    const arr = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const z = pianoHandle.getKeyZByMidi(notes[i].midi);
+      // Fallback to 0 if out of range, though it will be parked offscreen anyway
+      arr[i] = z ?? 0;
+    }
+    return arr;
+  }, [notes, pianoHandle, count]);
+
+  const instanceHitY = useMemo(() => {
+    const arr = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const y = pianoHandle.getKeyYByMidi(notes[i].midi);
+      arr[i] = y ?? pianoHandle.keyYSurface;
+    }
+    return arr;
+  }, [notes, pianoHandle, count]);
+
   const instanceWidth = useMemo(() => {
     const arr = new Float32Array(count);
     for (let i = 0; i < count; i++) {
@@ -78,21 +97,22 @@ export function FallingBars({
     const mesh = meshRef.current;
     if (!mesh) return;
     const t = Tone.getTransport().seconds;
-    const hit = pianoHandle.keyYSurface;
 
     for (let i = 0; i < count; i++) {
       const note = notes[i];
       const dt0 = note.time - t;
       const dt1 = note.time + note.duration - t;
+      const hit = instanceHitY[i];
 
       if (dt1 < -0.1 || dt0 > lookAheadSeconds) {
         dummy.position.set(0, -1000, 0);
         dummy.scale.set(0, 0, 0);
       } else {
-        const bottomY = hit + dt0 * scrollSpeed;
+        // Clamp bottomY to the specific key's hit surface so white and black keys align perfectly
+        const bottomY = Math.max(hit, hit + dt0 * scrollSpeed);
         const topY = hit + dt1 * scrollSpeed;
         const height = Math.max(0.015, topY - bottomY);
-        dummy.position.set(instanceX[i], (bottomY + topY) / 2, 0);
+        dummy.position.set(instanceX[i], (bottomY + topY) / 2, instanceZ[i]);
         dummy.scale.set(instanceWidth[i], height, BAR_DEPTH);
       }
       dummy.updateMatrix();

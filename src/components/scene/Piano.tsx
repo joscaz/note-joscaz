@@ -18,8 +18,11 @@ const PRESS_DEPTH_Y = 1.5; // model-space units (≈1.5mm) — scaled by group 0
 export interface PianoHandle {
   keys: PianoKeyRef[];
   modelWidth: number;
+  modelCenterX: number;
   keyYSurface: number;
   getKeyXByMidi: (midi: number) => number | null;
+  getKeyYByMidi: (midi: number) => number | null;
+  getKeyZByMidi: (midi: number) => number | null;
 }
 
 interface PianoProps {
@@ -118,17 +121,37 @@ export function Piano({ instrument, onReady }: PianoProps) {
     bbox.getSize(size);
 
     const keyXByMidi = new Map<number, number>();
-    for (const k of keys) {
-      const c = new Vector3();
-      new Box3().setFromObject(k.object).getCenter(c);
-      keyXByMidi.set(k.midi, c.x);
+    const keyYByMidi = new Map<number, number>();
+    const keyZByMidi = new Map<number, number>();
+    
+    // Find the back-most Z coordinate of all the *keys*, ignoring the piano casing/backboard.
+    // +Z is front, -Z is back.
+    let backOfKeysZ = Infinity;
+    const keyBoxes = keys.map(k => new Box3().setFromObject(k.object));
+    for (const box of keyBoxes) {
+      if (box.min.z < backOfKeysZ) backOfKeysZ = box.min.z;
     }
+
+    for (let i = 0; i < keys.length; i++) {
+      const c = new Vector3();
+      keyBoxes[i].getCenter(c);
+      keyXByMidi.set(keys[i].midi, c.x);
+      keyYByMidi.set(keys[i].midi, keyBoxes[i].max.y);
+      // Synthesia/Rousseau bars fall on a single flat plane at the back of the keys
+      keyZByMidi.set(keys[i].midi, backOfKeysZ);
+    }
+
+    const center = new Vector3();
+    bbox.getCenter(center);
 
     onReady({
       keys,
       modelWidth: size.x,
+      modelCenterX: center.x,
       keyYSurface: bbox.max.y,
       getKeyXByMidi: (midi) => keyXByMidi.get(midi) ?? null,
+      getKeyYByMidi: (midi) => keyYByMidi.get(midi) ?? null,
+      getKeyZByMidi: (midi) => keyZByMidi.get(midi) ?? null,
     });
   }, [keys, onReady]);
 
