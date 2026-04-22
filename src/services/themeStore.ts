@@ -12,17 +12,17 @@ interface ThemeState {
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 function deepMerge<T extends object>(base: T, patch: DeepPartial<T>): T {
-  const out: T = { ...base };
-  for (const k of Object.keys(patch) as Array<keyof T>) {
-    const pv = patch[k];
+  const out = { ...base } as Record<string, unknown>;
+  for (const k of Object.keys(patch)) {
+    const pv = patch[k as keyof T];
     const bv = (base as Record<string, unknown>)[k];
     if (pv && typeof pv === 'object' && !Array.isArray(pv) && bv && typeof bv === 'object') {
-      (out as Record<string, unknown>)[k] = deepMerge(bv as object, pv as DeepPartial<typeof bv>);
+      out[k] = deepMerge(bv as object, pv as DeepPartial<typeof bv>);
     } else if (pv !== undefined) {
-      (out as Record<string, unknown>)[k] = pv;
+      out[k] = pv;
     }
   }
-  return out;
+  return out as T;
 }
 
 /**
