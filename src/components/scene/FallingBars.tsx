@@ -149,7 +149,7 @@ export function FallingBars({
       } else {
         const bottomY = Math.max(hit, hit + dt0 * scrollSpeed);
         const seam = instanceTrimTop[i] ? SEAM_SECONDS * scrollSpeed : 0;
-        const topY = hit + dt1 * scrollSpeed - seam;
+        const topY = Math.max(hit, hit + dt1 * scrollSpeed - seam);
         const height = Math.max(0.015, topY - bottomY);
         dummy.position.set(instanceX[i], (bottomY + topY) / 2, instanceZ[i]);
         dummy.scale.set(instanceWidth[i], height, BAR_DEPTH);
