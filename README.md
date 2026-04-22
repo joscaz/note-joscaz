@@ -70,6 +70,10 @@ Shareable URL overrides (win over the stored value on load):
 
 The 3D scene is fully described by a single serializable `Theme` JSON object (`src/types/theme.ts`) — camera, piano, bars, particles, post-FX. Five presets ship built-in (`src/themes/presets.ts`); the Leva panel at the top-right lets you live-tune every field and switch between them. Because the theme is serializable, the same code path is intended to run headless in Node for a future mp4 export.
 
+### Re-strike seam (guitar)
+
+Guitar transcriptions carry long per-string sustains, so two back-to-back notes on the same pitch would otherwise render as one continuous bar with no visible re-strike. `FallingBars` precomputes a `trimTop` flag per note: if the next same-MIDI note starts within 0.15s of this one's end, the bar's top edge is shaved by `0.05s × scrollSpeed` at render time — producing a crisp seam at the re-strike that stays the same visual size regardless of scroll speed. Isolated notes are untouched.
+
 ## Transcription model
 
 The real MIDI is produced by the `OnsetsAndVelocities` piano / guitar models, served from the self-hosted [`note-joscaz-backend`](../note-joscaz-backend) FastAPI service (PyTorch, deployed on Railway). The frontend POSTs the raw upload to `POST /transcribe/{instrument}` and plays the returned `.mid`.

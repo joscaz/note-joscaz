@@ -19,6 +19,15 @@ const WHITE_BAR_WIDTH = 0.22;
 const BLACK_BAR_WIDTH = 0.14;
 const BAR_DEPTH = 0.22;
 
+// When two notes on the same MIDI land within this many seconds of each
+// other, we shave the trailing edge of the earlier bar to expose a visible
+// seam at the re-strike. Matters for guitar transcriptions (string sustain
+// makes durations long; touching bars would otherwise render as one block).
+const RESTRIKE_ADJACENCY_S = 0.15;
+// Seam size in *seconds*, multiplied by scrollSpeed at render time so the
+// visual gap stays constant regardless of scroll speed.
+const SEAM_SECONDS = 0.05;
+
 /**
  * One InstancedMesh for every note in the song. Each frame we recompute the
  * bar's Y from `Tone.Transport.seconds` so playback pause/scrub/loop all
@@ -72,6 +81,33 @@ export function FallingBars({
     return arr;
   }, [notes, count]);
 
+  // Per-note flag: 1 if another note on the same MIDI starts within
+  // RESTRIKE_ADJACENCY_S of this note's end — we'll shave this bar's top to
+  // produce a visible seam at the re-strike.
+  const instanceTrimTop = useMemo(() => {
+    const arr = new Uint8Array(count);
+    const byMidi = new Map<number, number[]>();
+    for (let i = 0; i < count; i++) {
+      const m = notes[i].midi;
+      let bucket = byMidi.get(m);
+      if (!bucket) {
+        bucket = [];
+        byMidi.set(m, bucket);
+      }
+      bucket.push(i);
+    }
+    for (const idxs of byMidi.values()) {
+      idxs.sort((a, b) => notes[a].time - notes[b].time);
+      for (let j = 0; j < idxs.length - 1; j++) {
+        const cur = notes[idxs[j]];
+        const nxt = notes[idxs[j + 1]];
+        const gap = nxt.time - (cur.time + cur.duration);
+        if (gap < RESTRIKE_ADJACENCY_S) arr[idxs[j]] = 1;
+      }
+    }
+    return arr;
+  }, [notes, count]);
+
   useLayoutEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
@@ -112,7 +148,8 @@ export function FallingBars({
         dummy.scale.set(0, 0, 0);
       } else {
         const bottomY = Math.max(hit, hit + dt0 * scrollSpeed);
-        const topY = hit + dt1 * scrollSpeed;
+        const seam = instanceTrimTop[i] ? SEAM_SECONDS * scrollSpeed : 0;
+        const topY = Math.max(hit, hit + dt1 * scrollSpeed - seam);
         const height = Math.max(0.015, topY - bottomY);
         dummy.position.set(instanceX[i], (bottomY + topY) / 2, instanceZ[i]);
         dummy.scale.set(instanceWidth[i], height, BAR_DEPTH);
