@@ -15,6 +15,33 @@ import { audioEngine } from './services/audioEngine';
 import { generateMockMidi } from './utils/mockMidi';
 import type { InstrumentType } from './utils/noteColors';
 
+function VizModeToggle({ value, onChange }: { value: VizMode; onChange: (v: VizMode) => void }) {
+  const base = 'px-3 py-1.5 text-xs font-mono uppercase tracking-[0.18em] transition-colors';
+  const active = 'bg-white/10 text-text';
+  const idle = 'text-muted hover:text-text';
+  return (
+    <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 backdrop-blur p-1">
+      <button
+        type="button"
+        className={`${base} rounded-full ${value === 'legacy' ? active : idle}`}
+        onClick={() => onChange('legacy')}
+      >
+        Legacy 2D
+      </button>
+      <button
+        type="button"
+        className={`${base} rounded-full flex items-center gap-1.5 ${value === 'beta' ? active : idle}`}
+        onClick={() => onChange('beta')}
+      >
+        3D
+        <span className="px-1.5 py-0.5 text-[9px] leading-none rounded-sm bg-piano-green/20 text-piano-green border border-piano-green/30">
+          BETA
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const route = useHashRoute();
   if (route.startsWith('/training')) {
@@ -27,13 +54,26 @@ export default function App() {
   return <LandingPage />;
 }
 
+type VizMode = 'legacy' | 'beta';
+const VIZ_MODE_KEY = 'noteforge:vizMode';
+
+function readInitialVizMode(): VizMode {
+  if (typeof window === 'undefined') return 'beta';
+  // URL flag wins — shareable override
+  const qs = new URLSearchParams(window.location.search).get('v');
+  if (qs === '3d' || window.location.hash.includes('v=3d')) return 'beta';
+  if (qs === '2d' || window.location.hash.includes('v=2d')) return 'legacy';
+  const stored = window.localStorage.getItem(VIZ_MODE_KEY);
+  if (stored === 'legacy' || stored === 'beta') return stored;
+  return 'beta';
+}
+
 function LandingPage() {
-  // Feature flag: ?v=3d (or hash #v=3d) swaps in the WebGL visualizer.
-  const use3D =
-    typeof window !== 'undefined' &&
-    (new URLSearchParams(window.location.search).get('v') === '3d' ||
-      window.location.hash.includes('v=3d'));
-  const VisualizerComponent = use3D ? Visualizer3D : Visualizer;
+  const [vizMode, setVizMode] = useState<VizMode>(readInitialVizMode);
+  useEffect(() => {
+    try { window.localStorage.setItem(VIZ_MODE_KEY, vizMode); } catch { /* noop */ }
+  }, [vizMode]);
+  const VisualizerComponent = vizMode === 'beta' ? Visualizer3D : Visualizer;
 
   const [instrument, setInstrument] = useState<InstrumentType>('piano');
   const [file, setFile] = useState<File | null>(null);
@@ -135,6 +175,9 @@ function LandingPage() {
         </div>
 
         <div ref={visualizerRef} className="py-10 md:py-16">
+          <div className="px-4 md:px-10 mb-4 flex justify-end">
+            <VizModeToggle value={vizMode} onChange={setVizMode} />
+          </div>
           {midi ? (
             <VisualizerComponent
               midi={midi}
