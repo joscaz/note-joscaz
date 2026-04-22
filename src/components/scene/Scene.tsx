@@ -2,6 +2,7 @@ import { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Piano, type PianoHandle } from './Piano';
 import { FallingBars } from './FallingBars';
+import { Particles } from './Particles';
 import { PostFX } from './PostFX';
 import type { InstrumentType } from '../../utils/noteColors';
 import type { NoteEvent } from '../../services/audioEngine';
@@ -50,6 +51,10 @@ export function Scene({ instrument, notes, scrollSpeed }: SceneProps) {
           instrument={instrument}
           scrollSpeed={scrollSpeed}
         />
+      )}
+
+      {pianoHandle && (
+        <Particles pianoHandle={pianoHandle} instrument={instrument} />
       )}
 
       <PostFX />
