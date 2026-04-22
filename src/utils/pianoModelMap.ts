@@ -1,62 +1,84 @@
-import type { Object3D, Mesh } from 'three';
-import { Box3, Vector3 } from 'three';
+import { Object3D, Mesh, BoxGeometry, Vector3 } from 'three';
 
-/**
- * Piano model from /public/models/piano.glb has 80 keys spanning MIDI 36..115
- * (C2..D#8). Keys are unnamed in the glb, so we identify them at load time by
- * sorting mesh children along world X and assigning MIDI numbers sequentially.
- *
- * The model also distinguishes white vs black keys by vertical bounding box:
- * whites sit at Y=0..17, blacks sit at Y=13..30. We do not rely on this for
- * mapping (X-order alone determines pitch) but surface the flag for visuals.
- */
-
-export const MODEL_MIDI_LOW = 36;   // C2 — leftmost key in the glb
-export const MODEL_MIDI_HIGH = 115; // D#8 — rightmost key in the glb
-export const MODEL_KEY_COUNT = MODEL_MIDI_HIGH - MODEL_MIDI_LOW + 1; // 80
+export const MODEL_MIDI_LOW = 21;   // A0
+export const MODEL_MIDI_HIGH = 108; // C8
+export const MODEL_KEY_COUNT = MODEL_MIDI_HIGH - MODEL_MIDI_LOW + 1; // 88
 
 export interface PianoKeyRef {
   midi: number;
   object: Object3D;
   restRotationX: number;
-  localCenter: Vector3; // center of key's geometry in world space at load time
+  localCenter: Vector3;
   isBlack: boolean;
 }
 
-/**
- * Walk a loaded glTF scene and return one entry per key mesh, sorted by
- * world X (ascending = lowest pitch first).
- */
-export function mapKeysByMidi(root: Object3D): PianoKeyRef[] {
-  const meshes: Mesh[] = [];
-  root.traverse((obj) => {
-    if ((obj as Mesh).isMesh) meshes.push(obj as Mesh);
-  });
+const WHITE_KEY_WIDTH = 0.23;
+const WHITE_KEY_LENGTH = 1.50;
+const WHITE_KEY_HEIGHT = 0.22;
+const GAP = 0.015;
 
-  const withCenters = meshes.map((m) => {
-    const box = new Box3().setFromObject(m);
-    const center = new Vector3();
-    box.getCenter(center);
-    // isBlack: bbox min Y sits above white-key surface (whites ~0, blacks ~13+).
-    return { mesh: m, center, isBlack: box.min.y > 10 };
-  });
+const BLACK_KEY_WIDTH = 0.11;
+const BLACK_KEY_LENGTH = 0.95;
+const BLACK_KEY_HEIGHT = 0.22;
 
-  withCenters.sort((a, b) => a.center.x - b.center.x);
+export const isBlackKey = (midi: number) => {
+  const p = midi % 12;
+  return p === 1 || p === 3 || p === 6 || p === 8 || p === 10;
+};
 
-  if (withCenters.length !== MODEL_KEY_COUNT) {
-    console.warn(
-      `[pianoModelMap] expected ${MODEL_KEY_COUNT} key meshes, found ${withCenters.length}. ` +
-        `MIDI mapping may be off.`,
-    );
+const getWhiteKeyIndex = (midi: number) => {
+  const oct = Math.floor(midi / 12);
+  const p = midi % 12;
+  const offsets = [0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6];
+  return oct * 7 + offsets[p] - 12; // -12 so that MIDI 21 (A0) is index 0
+};
+
+// Reusable geometries
+const whiteGeometry = new BoxGeometry(WHITE_KEY_WIDTH, WHITE_KEY_HEIGHT, WHITE_KEY_LENGTH);
+const blackGeometry = new BoxGeometry(BLACK_KEY_WIDTH, BLACK_KEY_HEIGHT, BLACK_KEY_LENGTH);
+
+export function generatePianoKeys(): PianoKeyRef[] {
+  const keys: PianoKeyRef[] = [];
+  
+  for (let midi = MODEL_MIDI_LOW; midi <= MODEL_MIDI_HIGH; midi++) {
+    const isBlack = isBlackKey(midi);
+    const wIndex = getWhiteKeyIndex(midi);
+    
+    let x = 0;
+    let y = 0;
+    let z = 0;
+    let geom = null;
+    
+    if (!isBlack) {
+      x = wIndex * (WHITE_KEY_WIDTH + GAP);
+      y = WHITE_KEY_HEIGHT / 2;
+      z = WHITE_KEY_LENGTH / 2;
+      geom = whiteGeometry;
+    } else {
+      const leftWIndex = getWhiteKeyIndex(midi - 1);
+      const rightWIndex = getWhiteKeyIndex(midi + 1);
+      const leftX = leftWIndex * (WHITE_KEY_WIDTH + GAP);
+      const rightX = rightWIndex * (WHITE_KEY_WIDTH + GAP);
+      x = (leftX + rightX) / 2;
+      y = WHITE_KEY_HEIGHT + (BLACK_KEY_HEIGHT / 2); 
+      z = BLACK_KEY_LENGTH / 2;
+      geom = blackGeometry;
+    }
+    
+    const mesh = new Mesh(geom);
+    mesh.position.set(x, y, z);
+    mesh.updateMatrixWorld();
+    
+    keys.push({
+      midi,
+      object: mesh,
+      restRotationX: 0,
+      localCenter: new Vector3(x, y, z),
+      isBlack,
+    });
   }
-
-  return withCenters.map((entry, i) => ({
-    midi: MODEL_MIDI_LOW + i,
-    object: entry.mesh,
-    restRotationX: entry.mesh.rotation.x,
-    localCenter: entry.center,
-    isBlack: entry.isBlack,
-  }));
+  
+  return keys;
 }
 
 export function midiToKeyIndex(midi: number): number | null {

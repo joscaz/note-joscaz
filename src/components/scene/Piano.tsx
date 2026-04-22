@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import type { Group, Mesh, Object3D } from 'three';
+import type { Group, Mesh } from 'three';
 import { Box3, Color, MeshStandardMaterial, Vector3 } from 'three';
-import { mapKeysByMidi, type PianoKeyRef } from '../../utils/pianoModelMap';
+import { generatePianoKeys, type PianoKeyRef } from '../../utils/pianoModelMap';
 import { audioEngine } from '../../services/audioEngine';
 import { NOTE_GRADIENTS, type InstrumentType } from '../../utils/noteColors';
-
-const MODEL_URL = '/models/piano.glb';
-useGLTF.preload(MODEL_URL);
 
 // Press dynamics (seconds-to-equilibrium time constants).
 const ATTACK_TAU = 0.025;  // fast downstroke
 const RELEASE_TAU = 0.15;  // slower return
-const PRESS_DEPTH_Y = 1.5; // model-space units (≈1.5mm) — scaled by group 0.01
+const PRESS_DEPTH_Y = 0.1; // model-space units for key press travel
 
 export interface PianoHandle {
   keys: PianoKeyRef[];
@@ -31,25 +27,18 @@ interface PianoProps {
 }
 
 /**
- * Loads piano.glb, assigns MIDI numbers by X-sorted mesh position, and
- * animates key-press depression + emissive glow in lockstep with
- * `audioEngine.onActiveNotes`.
+ * Procedurally generates an 88-key piano, properly mapping MIDI numbers
+ * and enforcing the 2-3 black key pattern.
  *
  * Per-key press amount is integrated in a local array (not React state) so
  * the 60Hz animation doesn't trigger re-renders.
  */
 export function Piano({ instrument, onReady }: PianoProps) {
-  const gltf = useGLTF(MODEL_URL);
   const groupRef = useRef<Group>(null);
 
-  // Clone the scene so multiple mounts never mutate the cached asset.
-  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  const keys = useMemo(() => generatePianoKeys(), []);
 
-  const keys = useMemo(() => mapKeysByMidi(scene), [scene]);
-
-  // Swap each key mesh to a MeshStandardMaterial we own (emissive slot
-  // available, base color preserved). Also cache the rest Y so press
-  // animation returns to the true origin.
+  // Set up materials and cache the rest Y so press animation returns to true origin.
   const keyStateRef = useRef<
     Array<{
       mesh: Mesh;
@@ -68,8 +57,7 @@ export function Piano({ instrument, onReady }: PianoProps) {
     const active = new Color(NOTE_GRADIENTS[instrument].top);
     keyStateRef.current = keys.map((k) => {
       const mesh = k.object as Mesh;
-      const prev = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      const baseColor = (prev as { color?: Color })?.color?.clone() ?? new Color(k.isBlack ? 0x111111 : 0xf5f5f5);
+      const baseColor = new Color(k.isBlack ? 0x111111 : 0xf5f5f5);
       const mat = new MeshStandardMaterial({
         color: baseColor,
         roughness: k.isBlack ? 0.35 : 0.45,
@@ -116,6 +104,10 @@ export function Piano({ instrument, onReady }: PianoProps) {
   useEffect(() => {
     if (!groupRef.current || !onReady) return;
     const group = groupRef.current;
+    
+    // We update world matrices before calculating bounding boxes to ensure accuracy
+    group.updateMatrixWorld(true);
+    
     const bbox = new Box3().setFromObject(group);
     const size = new Vector3();
     bbox.getSize(size);
@@ -124,7 +116,7 @@ export function Piano({ instrument, onReady }: PianoProps) {
     const keyYByMidi = new Map<number, number>();
     const keyZByMidi = new Map<number, number>();
     
-    // Find the back-most Z coordinate of all the *keys*, ignoring the piano casing/backboard.
+    // Find the back-most Z coordinate of all the *keys*.
     // +Z is front, -Z is back.
     let backOfKeysZ = Infinity;
     const keyBoxes = keys.map(k => new Box3().setFromObject(k.object));
@@ -137,7 +129,6 @@ export function Piano({ instrument, onReady }: PianoProps) {
       keyBoxes[i].getCenter(c);
       keyXByMidi.set(keys[i].midi, c.x);
       keyYByMidi.set(keys[i].midi, keyBoxes[i].max.y);
-      // Synthesia/Rousseau bars fall on a single flat plane at the back of the keys
       keyZByMidi.set(keys[i].midi, backOfKeysZ);
     }
 
@@ -156,8 +147,10 @@ export function Piano({ instrument, onReady }: PianoProps) {
   }, [keys, onReady]);
 
   return (
-    <group ref={groupRef} scale={0.01} position={[-6.6, 0, 0]}>
-      <primitive object={scene as Object3D} />
+    <group ref={groupRef}>
+      {keys.map((k) => (
+        <primitive key={k.midi} object={k.object} />
+      ))}
     </group>
   );
 }
