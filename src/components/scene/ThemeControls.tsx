@@ -2,6 +2,7 @@ import { useControls, useCreateStore, LevaPanel, folder } from 'leva';
 import { useThemeStore } from '../../services/themeStore';
 import type { PresetName } from '../../types/theme';
 import { PRESETS } from '../../themes/presets';
+import { useState } from 'react';
 
 /**
  * Leva-driven live tuning panel.
@@ -24,6 +25,7 @@ function InnerPanel() {
   const presetName = useThemeStore.getState().presetName;
   const update = useThemeStore.getState().updateTheme;
   const setPreset = useThemeStore.getState().setPreset;
+  const [panelPos, setPanelPos] = useState({ x: 0, y: 50 });
 
   useControls(
     () => ({
@@ -189,12 +191,19 @@ function InnerPanel() {
   );
 
   return (
-    <LevaPanel
-      store={store}
-      fill={false}
-      flat={false}
-      collapsed
-      titleBar={{ title: 'Theme' }}
-    />
+      <LevaPanel
+        store={store}
+        fill={false}
+        flat={false}
+        collapsed
+        titleBar={{
+          title: 'Theme',
+          position: panelPos,
+          onDragEnd: (pos) => setPanelPos({
+            x: pos.x ?? panelPos.x,
+            y: pos.y ?? panelPos.y,
+          })
+        }}
+      />
   );
 }

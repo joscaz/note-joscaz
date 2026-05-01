@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { InstrumentSelector } from './InstrumentSelector';
 import { downsampleWaveform } from '../services/audioDecoder';
+import { useAuthStore } from '../services/authStore';
 import type { InstrumentType } from '../utils/noteColors';
 import { NOTE_GRADIENTS } from '../utils/noteColors';
 
@@ -11,6 +12,7 @@ interface UploadZoneProps {
   onFileReady: (file: File, buffer: AudioBuffer) => void;
   decode: (f: File) => Promise<AudioBuffer>;
   onTranscribe: () => void;
+  onTranscribeGate?: () => void;
   audioBuffer: AudioBuffer | null;
   fileName: string | null;
   busy: boolean;
@@ -22,10 +24,12 @@ export function UploadZone({
   onFileReady,
   decode,
   onTranscribe,
+  onTranscribeGate,
   audioBuffer,
   fileName,
   busy,
 }: UploadZoneProps) {
+  const user = useAuthStore((s) => s.user);
   const [dragOver, setDragOver] = useState(false);
   const [decoding, setDecoding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,17 +137,15 @@ export function UploadZone({
                   {audioBuffer.duration.toFixed(2)}s · {audioBuffer.numberOfChannels} ch · {audioBuffer.sampleRate / 1000} kHz
                 </div>
               </div>
-              <button
-                onClick={onTranscribe}
-                disabled={busy}
-                className="relative px-6 py-3 rounded-full font-button font-semibold text-black transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{
-                  background: `linear-gradient(135deg, ${grad.top}, ${grad.bottom})`,
-                  boxShadow: `0 0 28px ${grad.glow}`,
-                }}
-              >
-                Transcribe →
-              </button>
+              <div className="flex items-center gap-3 flex-wrap justify-end">
+                <button
+                  onClick={user ? onTranscribe : onTranscribeGate}
+                  disabled={busy}
+                  className="relative px-6 py-3 rounded-full font-button font-semibold text-black transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed bg-[#00b4d8]"
+                >
+                  {user ? 'Transcribe →' : 'Sign in to Transcribe'}
+                </button>
+              </div>
             </div>
             <Waveform buffer={audioBuffer} color={grad.top} />
           </div>

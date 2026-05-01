@@ -8,11 +8,14 @@ import { Visualizer3D } from './components/Visualizer3D';
 import { Footer } from './components/Footer';
 import { DesktopGate } from './components/DesktopGate';
 import { TrainingPage } from './components/TrainingPage';
-import { useHashRoute } from './hooks/useHashRoute';
+import { AuthPage } from './components/AuthPage';
+import { useHashRoute, navigate } from './hooks/useHashRoute';
 import { decodeAudioFile } from './services/audioDecoder';
 import { transcribe } from './services/transcriptionService';
 import { audioEngine } from './services/audioEngine';
+import { useAuthStore } from './services/authStore';
 import { generateMockMidi } from './utils/mockMidi';
+import { AuthBadge } from './components/AuthBadge';
 import type { InstrumentType } from './utils/noteColors';
 
 function VizModeToggle({ value, onChange }: { value: VizMode; onChange: (v: VizMode) => void }) {
@@ -51,6 +54,13 @@ export default function App() {
       </DesktopGate>
     );
   }
+  if (route.startsWith('/login') || route.startsWith('/signup')) {
+    return (
+      <DesktopGate>
+        <AuthPage />
+      </DesktopGate>
+    );
+  }
   return <LandingPage />;
 }
 
@@ -69,6 +79,7 @@ function readInitialVizMode(): VizMode {
 }
 
 function LandingPage() {
+  const session = useAuthStore((s) => s.session);
   const [vizMode, setVizMode] = useState<VizMode>(readInitialVizMode);
   useEffect(() => {
     try { window.localStorage.setItem(VIZ_MODE_KEY, vizMode); } catch { /* noop */ }
@@ -131,6 +142,7 @@ function LandingPage() {
       await audioEngine.loadInstruments();
       const result = await transcribe(buffer, instrument, {
         file: file ?? undefined,
+        accessToken: session?.access_token,
         onProgress: (p, s) => {
           setProgress(p);
           setStage(s);
@@ -154,10 +166,13 @@ function LandingPage() {
     } finally {
       setBusy(false);
     }
-  }, [buffer, file, instrument]);
+  }, [buffer, file, instrument, session]);
 
   return (
     <DesktopGate>
+      <header className="fixed top-0 right-0 z-50 p-4">
+        <AuthBadge />
+      </header>
       <main className="relative min-h-screen">
         <Hero onCtaClick={() => scrollTo(uploadRef.current)} />
 
@@ -168,6 +183,7 @@ function LandingPage() {
             onFileReady={handleFileReady}
             decode={decodeAudioFile}
             onTranscribe={handleTranscribe}
+            onTranscribeGate={() => navigate('/login')}
             audioBuffer={buffer}
             fileName={file?.name ?? null}
             busy={busy}
