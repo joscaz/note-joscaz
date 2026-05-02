@@ -1,16 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuthStore } from '../services/authStore';
 import { supabase } from '../services/supabaseClient';
 
-type View = 'login' | 'signup' | 'forgot';
+type View = 'login' | 'signup' | 'forgot' | 'reset';
 
 interface AuthModalProps {
   onClose?: () => void;
 }
 
 export function AuthModal({ onClose }: AuthModalProps) {
-  const [view, setView] = useState<View>('login');
+  const isPasswordRecovery = useAuthStore((s) => s.isPasswordRecovery);
+  const [view, setView] = useState<View>(() => (isPasswordRecovery ? 'reset' : 'login'));
+
+  useEffect(() => {
+    if (isPasswordRecovery) setView('reset');
+  }, [isPasswordRecovery]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-aurora">
@@ -58,6 +63,9 @@ export function AuthModal({ onClose }: AuthModalProps) {
             )}
             {view === 'forgot' && (
               <ForgotView key="forgot" setView={setView} />
+            )}
+            {view === 'reset' && (
+              <ResetPasswordView key="reset" onSuccess={onClose} />
             )}
           </AnimatePresence>
         </div>
@@ -479,6 +487,69 @@ function SignupView({
           </div>
         </form>
       )}
+    </ViewWrap>
+  );
+}
+
+/* ─── Reset password view ────────────────────────────────── */
+
+function ResetPasswordView({ onSuccess }: { onSuccess?: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (password !== confirm) { setError('Passwords do not match'); return; }
+    if (strengthLevel(password) < 2) { setError('Please choose a stronger password'); return; }
+    setBusy(true);
+    try {
+      const { error: err } = await supabase.auth.updateUser({ password });
+      if (err) throw err;
+      onSuccess?.();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update password');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ViewWrap>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="text-sm text-muted text-center mb-2">
+          Choose a new password for your account.
+        </div>
+        <div className="flex flex-col gap-1">
+          <PasswordInput
+            label="New password"
+            value={password}
+            onChange={setPassword}
+            autoComplete="new-password"
+          />
+          <PasswordStrength password={password} />
+        </div>
+        <PasswordInput
+          label="Confirm new password"
+          value={confirm}
+          onChange={setConfirm}
+          autoComplete="new-password"
+        />
+        <AnimatePresence>{error && <ErrorBanner message={error} />}</AnimatePresence>
+        <button
+          type="submit"
+          disabled={busy || !password || !confirm}
+          className="w-full py-3 rounded-full font-button font-semibold text-black text-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: 'linear-gradient(135deg, #00b4d8, #00f5a0)',
+            boxShadow: '0 0 28px rgba(0,245,160,0.3)',
+          }}
+        >
+          {busy ? 'Updating…' : 'Set new password'}
+        </button>
+      </form>
     </ViewWrap>
   );
 }

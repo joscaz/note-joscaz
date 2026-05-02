@@ -9,6 +9,7 @@ interface AuthState {
   session: Session | null;
   dailyCount: number;
   loading: boolean;
+  isPasswordRecovery: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signUp: (email: string, password: string, username: string) => Promise<void>;
@@ -19,9 +20,13 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => {
   // Subscribe once at store creation; listener fires immediately with the
   // current session so `loading` drops to false on the first tick.
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      set({ user: session?.user ?? null, session, loading: false, isPasswordRecovery: true });
+      return;
+    }
     const user = session?.user ?? null;
-    set({ user, session, loading: false });
+    set({ user, session, loading: false, isPasswordRecovery: false });
     if (user) {
       void get().fetchDailyCount();
     } else {
@@ -34,6 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     session: null,
     dailyCount: 0,
     loading: true,
+    isPasswordRecovery: false,
 
     signInWithEmail: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -56,6 +62,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
       });
       if (error) throw error;
       if (data.user) {
+        // identities is empty when the email already exists but is unconfirmed —
+        // Supabase re-sends the confirmation email without creating a new user.
+        if ((data.user.identities?.length ?? 0) === 0) {
+          throw new Error('This email is already registered. Check your inbox for a confirmation link.');
+        }
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({ id: data.user.id, username });
