@@ -80,6 +80,7 @@ function readInitialVizMode(): VizMode {
 
 function LandingPage() {
   const session = useAuthStore((s) => s.session);
+  const fetchDailyCount = useAuthStore((s) => s.fetchDailyCount);
   const [vizMode, setVizMode] = useState<VizMode>(readInitialVizMode);
   useEffect(() => {
     try { window.localStorage.setItem(VIZ_MODE_KEY, vizMode); } catch { /* noop */ }
@@ -150,6 +151,7 @@ function LandingPage() {
       });
       setMidi(result.midi);
       setIsReal(result.real);
+      if (result.real) void fetchDailyCount();
       audioEngine.loadMidi(result.midi, instrument);
       audioEngine.setBpm(result.bpm);
       // When the backend returns real MIDI and we have an original file,
@@ -166,7 +168,7 @@ function LandingPage() {
     } finally {
       setBusy(false);
     }
-  }, [buffer, file, instrument, session]);
+  }, [buffer, fetchDailyCount, file, instrument, session]);
 
   return (
     <DesktopGate>
