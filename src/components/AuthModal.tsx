@@ -383,7 +383,6 @@ function SignupView({
     try {
       await signUp(email.trim(), password, username.trim());
       setInfo('Check your email to confirm your account, then sign in.');
-      onSuccess?.();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Sign up failed');
     } finally {

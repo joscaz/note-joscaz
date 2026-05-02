@@ -69,10 +69,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     fetchDailyCount: async () => {
+      const userId = get().user?.id;
+      if (!userId) { set({ dailyCount: 0 }); return; }
       const today = new Date().toISOString().split('T')[0];
       const { count } = await supabase
         .from('transcription_logs')
         .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
         .gte('created_at', today);
       set({ dailyCount: count ?? 0 });
     },
