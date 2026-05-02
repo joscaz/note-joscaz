@@ -54,7 +54,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
               <LoginView key="login" setView={setView} onSuccess={onClose} />
             )}
             {view === 'signup' && (
-              <SignupView key="signup" setView={setView} onSuccess={onClose} />
+              <SignupView key="signup" setView={setView} />
             )}
             {view === 'forgot' && (
               <ForgotView key="forgot" setView={setView} />
@@ -348,10 +348,8 @@ function LoginView({
 
 function SignupView({
   setView,
-  onSuccess,
 }: {
   setView: (v: View) => void;
-  onSuccess?: () => void;
 }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
