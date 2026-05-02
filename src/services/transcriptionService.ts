@@ -39,6 +39,8 @@ export interface TranscribeOptions {
   onProgress?: (progress: number, stage: string) => void;
   /** Original audio file — required for real inference. */
   file?: File;
+  /** Supabase access token — required for authenticated transcription. */
+  accessToken?: string;
 }
 
 const STAGES = ['Uploading', 'Transcribing on server', 'Building MIDI'] as const;
@@ -52,7 +54,7 @@ export async function transcribe(
   instrument: InstrumentType,
   opts: TranscribeOptions = {},
 ): Promise<TranscriptionResult> {
-  const { onProgress, file } = opts;
+  const { onProgress, file, accessToken } = opts;
 
   if (!file) {
     // Pure demo path: staged animation + mock MIDI.
@@ -65,6 +67,7 @@ export async function transcribe(
       instrument,
       audioBuffer?.duration,
       onProgress,
+      accessToken,
     );
 
     // Stage 2: parse the MIDI bytes.
@@ -159,6 +162,7 @@ function uploadAndTranscribe(
   instrument: InstrumentType,
   audioDurationSec: number | undefined,
   onProgress: TranscribeOptions['onProgress'],
+  accessToken?: string,
 ): Promise<ArrayBuffer> {
   return new Promise<ArrayBuffer>((resolve, reject) => {
     const form = new FormData();
@@ -170,6 +174,9 @@ function uploadAndTranscribe(
     // back as note_on-only (DAW-friendly but parses to 0 notes in-browser).
     xhr.open('POST', `${API_BASE}/transcribe/${instrument}?mode=web`);
     xhr.responseType = 'arraybuffer';
+    if (accessToken) {
+      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    }
 
     // --- Stage 1: fake progress while we wait for the server ---
     // The backend doesn't stream progress; estimate how long inference takes
