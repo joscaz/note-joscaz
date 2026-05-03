@@ -25,6 +25,13 @@ const API_BASE: string =
   (import.meta.env.VITE_TRANSCRIBE_API_URL as string | undefined) ??
   'http://localhost:8000';
 
+export class TranscriptionLimitError extends Error {
+  constructor() {
+    super('Transcription limit reached');
+    this.name = 'TranscriptionLimitError';
+  }
+}
+
 export interface TranscriptionResult {
   midi: Midi;
   bpm: number;
@@ -91,6 +98,7 @@ export async function transcribe(
       real: true,
     };
   } catch (err) {
+    if (err instanceof TranscriptionLimitError) throw err;
     console.warn(
       '[NoteJoscaz] Backend transcription failed, falling back to mock:',
       err,
@@ -217,6 +225,8 @@ function uploadAndTranscribe(
       if (xhr.status >= 200 && xhr.status < 300) {
         emitProgress(onProgress, 1, 1);
         resolve(xhr.response as ArrayBuffer);
+      } else if (xhr.status === 429) {
+        reject(new TranscriptionLimitError());
       } else {
         reject(
           new Error(
