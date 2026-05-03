@@ -56,13 +56,14 @@ export function Scene({ instrument, notes, scrollSpeed, frameloop = 'always' }: 
   const [pianoHandle, setPianoHandle] = useState<PianoHandle | null>(null);
   const background = useThemeStore((s) => s.theme.background);
   const fog = useThemeStore((s) => s.theme.fog);
+  const effectiveDpr = Math.min(window.devicePixelRatio, 1.5);
 
   return (
     <Canvas
       orthographic
       frameloop={frameloop}
       dpr={[1, 1.5]}
-      gl={{ antialias: window.devicePixelRatio < 2, powerPreference: 'default' }}
+      gl={{ antialias: effectiveDpr < 2, powerPreference: 'default' }}
       camera={{ position: [0, 20, 100], near: 0.1, far: 500 }}
       shadows
     >
