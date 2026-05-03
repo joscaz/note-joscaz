@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect } from 'react';
 
 interface LimitReachedDialogProps {
   open: boolean;
@@ -6,6 +7,18 @@ interface LimitReachedDialogProps {
 }
 
 export function LimitReachedDialog({ open, onClose }: LimitReachedDialogProps) {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -25,6 +38,9 @@ export function LimitReachedDialog({ open, onClose }: LimitReachedDialogProps) {
             transition={{ duration: 0.2 }}
             className="relative max-w-sm w-[92%] glass rounded-3xl border border-white/10 p-8 flex flex-col gap-6 text-center"
             onClick={(e) => e.stopPropagation()}
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='limit-dialog-title'
           >
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-pink/10 border border-pink/20">
               <svg
