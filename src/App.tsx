@@ -16,6 +16,8 @@ import { audioEngine } from './services/audioEngine';
 import { useAuthStore } from './services/authStore';
 import { generateMockMidi } from './utils/mockMidi';
 import { AuthBadge } from './components/AuthBadge';
+import { LimitReachedDialog } from './components/LimitReachedDialog';
+import { TranscriptionLimitError } from './services/transcriptionService';
 import type { InstrumentType } from './utils/noteColors';
 
 function VizModeToggle({ value, onChange }: { value: VizMode; onChange: (v: VizMode) => void }) {
@@ -96,6 +98,7 @@ function LandingPage() {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('Decoding audio');
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
   const uploadRef = useRef<HTMLDivElement>(null);
   const visualizerRef = useRef<HTMLDivElement>(null);
 
@@ -163,8 +166,12 @@ function LandingPage() {
       setOverlayOpen(false);
       setTimeout(() => scrollTo(visualizerRef.current), 250);
     } catch (e) {
-      console.error(e);
       setOverlayOpen(false);
+      if (e instanceof TranscriptionLimitError) {
+        setLimitReached(true);
+      } else {
+        console.error(e);
+      }
     } finally {
       setBusy(false);
     }
@@ -213,6 +220,7 @@ function LandingPage() {
         <Footer />
 
         <ProcessingOverlay open={overlayOpen} progress={progress} stage={stage} instrument={instrument} />
+        <LimitReachedDialog open={limitReached} onClose={() => setLimitReached(false)} />
       </main>
     </DesktopGate>
   );
