@@ -12,6 +12,7 @@ interface SceneProps {
   instrument: InstrumentType;
   notes: readonly NoteEvent[];
   scrollSpeed: number;
+  frameloop?: 'always' | 'demand' | 'never';
 }
 
 function CameraController({ pianoHandle }: { pianoHandle: PianoHandle | null }) {
@@ -51,16 +52,18 @@ function CameraController({ pianoHandle }: { pianoHandle: PianoHandle | null }) 
  * Top-level r3f scene. Camera is intentionally locked (cinematic Rousseau
  * framing); orbit controls are not mounted by default.
  */
-export function Scene({ instrument, notes, scrollSpeed }: SceneProps) {
+export function Scene({ instrument, notes, scrollSpeed, frameloop = 'always' }: SceneProps) {
   const [pianoHandle, setPianoHandle] = useState<PianoHandle | null>(null);
   const background = useThemeStore((s) => s.theme.background);
   const fog = useThemeStore((s) => s.theme.fog);
+  const effectiveDpr = Math.min(window.devicePixelRatio, 1.5);
 
   return (
     <Canvas
       orthographic
-      dpr={[1, 2]}
-      gl={{ antialias: true, powerPreference: 'high-performance' }}
+      frameloop={frameloop}
+      dpr={[1, 1.5]}
+      gl={{ antialias: effectiveDpr < 2, powerPreference: 'default' }}
       camera={{ position: [0, 20, 100], near: 0.1, far: 500 }}
       shadows
     >
@@ -73,8 +76,8 @@ export function Scene({ instrument, notes, scrollSpeed }: SceneProps) {
         position={[4, 8, 6]}
         intensity={0.9}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
       />
       <directionalLight position={[-6, 4, -4]} intensity={0.3} color="#6aa9ff" />
 
