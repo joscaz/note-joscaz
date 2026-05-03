@@ -23,6 +23,34 @@ export function Visualizer3D({ midi, instrument, fileName, isRealTranscription }
   const [scrollSpeed, setScrollSpeed] = useState(220);
   const sceneScrollSpeed = scrollSpeed / 50;
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hasEntered, setHasEntered] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Mount the Canvas only once the section is within 400px of the viewport.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setHasEntered(true); observer.disconnect(); } },
+      { rootMargin: '400px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Pause/resume the render loop as the canvas enters and leaves the viewport.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: '0px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const notes = useMemo<NoteEvent[]>(() => {
     const out: NoteEvent[] = [];
     for (const tr of midi.tracks) {
@@ -66,8 +94,19 @@ export function Visualizer3D({ midi, instrument, fileName, isRealTranscription }
       </div>
 
       <div className="glass rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-        <div style={{ height: '70vh', minHeight: 600 }}>
-          <Scene instrument={instrument} notes={notes} scrollSpeed={sceneScrollSpeed} />
+        <div ref={containerRef} style={{ height: '70vh', minHeight: 600 }}>
+          {hasEntered ? (
+            <Scene
+              instrument={instrument}
+              notes={notes}
+              scrollSpeed={sceneScrollSpeed}
+              frameloop={isVisible ? 'always' : 'never'}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-muted font-mono text-sm animate-pulse">Loading scene…</span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -17,7 +17,7 @@ export function PostFX() {
         luminanceThreshold={postfx.bloomThreshold}
         luminanceSmoothing={0.2}
         radius={postfx.bloomRadius}
-        kernelSize={KernelSize.LARGE}
+        kernelSize={KernelSize.MEDIUM}
       />
       <ChromaticAberration
         offset={new Vector2(postfx.chromaticOffset, postfx.chromaticOffset)}
