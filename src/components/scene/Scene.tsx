@@ -65,7 +65,7 @@ export function Scene({ instrument, notes, scrollSpeed, frameloop = 'always' }: 
       dpr={[1, 1.5]}
       gl={{ antialias: effectiveDpr < 2, powerPreference: 'default' }}
       camera={{ position: [0, 20, 100], near: 0.1, far: 500 }}
-      shadows
+      shadows={false}
     >
       <CameraController pianoHandle={pianoHandle} />
       <color attach="background" args={[background]} />

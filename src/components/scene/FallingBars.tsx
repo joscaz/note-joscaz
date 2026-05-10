@@ -165,7 +165,7 @@ export function FallingBars({
       key={count}
       ref={meshRef}
       args={[undefined, undefined, count]}
-      castShadow
+      castShadow={false}
     >
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial
