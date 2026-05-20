@@ -366,7 +366,7 @@ export const curatedMidis: CuratedMidi[] = [
     composer: "Frédéric Chopin",
     difficulty: "Master",
     filename: "chopin_heroic_polonaise_op53.mid",
-    attribution: "Bernd Krueger (piano-midi.de)",
+    attribution: "Rousseau",
     genre: "Classical",
     downloadable: true
   },
@@ -376,7 +376,7 @@ export const curatedMidis: CuratedMidi[] = [
     composer: "Claude Debussy",
     difficulty: "Intermediate",
     filename: "debussy_reverie.mid",
-    attribution: "Bernd Krueger (piano-midi.de)",
+    attribution: "Rousseau",
     genre: "Classical",
     downloadable: true
   },
