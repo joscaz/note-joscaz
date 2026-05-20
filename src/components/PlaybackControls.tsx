@@ -31,6 +31,7 @@ interface PlaybackControlsProps {
   onScrollSpeedChange: (n: number) => void;
   midi: Midi;
   instrument: InstrumentType;
+  isDownloadable?: boolean;
 }
 
 export function PlaybackControls({
@@ -39,6 +40,7 @@ export function PlaybackControls({
   onScrollSpeedChange,
   midi,
   instrument,
+  isDownloadable = true,
 }: PlaybackControlsProps) {
   const grad = NOTE_GRADIENTS[instrument];
 
@@ -194,14 +196,16 @@ export function PlaybackControls({
         {/* A/B source switch */}
         <ABSwitch value={player.source} onChange={player.setSource} color={grad.top} />
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => downloadMidi(midi, `notejoscaz-${instrument}.mid`)}
-            className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors"
-          >
-            ↓ MIDI
-          </button>
-        </div>
+        {isDownloadable && (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => downloadMidi(midi, `notejoscaz-${instrument}.mid`)}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors"
+            >
+              ↓ MIDI
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Progress shimmer under controls */}

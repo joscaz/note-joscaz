@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Midi } from '@tonejs/midi';
+import { Midi } from '@tonejs/midi';
 import { Hero } from './components/Hero';
 import { UploadZone } from './components/UploadZone';
 import { ProcessingOverlay } from './components/ProcessingOverlay';
@@ -19,6 +19,9 @@ import { AuthBadge } from './components/AuthBadge';
 import { LimitReachedDialog } from './components/LimitReachedDialog';
 import { TranscriptionLimitError } from './services/transcriptionService';
 import type { InstrumentType } from './utils/noteColors';
+import { curatedMidis } from './utils/curatedMidis';
+import type { CuratedMidi } from './utils/curatedMidis';
+import { supabase } from './services/supabaseClient';
 
 function VizModeToggle({ value, onChange }: { value: VizMode; onChange: (v: VizMode) => void }) {
   const base = 'px-3 py-1.5 text-xs font-mono uppercase tracking-[0.18em] transition-colors';
@@ -94,6 +97,10 @@ function LandingPage() {
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [midi, setMidi] = useState<Midi | null>(null);
   const [isReal, setIsReal] = useState(false);
+  const [isCurated, setIsCurated] = useState(false);
+  const [curatedAttribution, setCuratedAttribution] = useState<string | null>(null);
+  const [activeCuratedId, setActiveCuratedId] = useState<string | null>(null);
+  const [isDownloadable, setIsDownloadable] = useState(true);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('Decoding audio');
@@ -122,6 +129,10 @@ function LandingPage() {
   const handleFileReady = useCallback((f: File, buf: AudioBuffer) => {
     setFile(f);
     setBuffer(buf);
+    setIsCurated(false);
+    setCuratedAttribution(null);
+    setActiveCuratedId(null);
+    setIsDownloadable(true);
     void audioEngine.loadAudio(buf);
   }, []);
 
@@ -154,6 +165,10 @@ function LandingPage() {
       });
       setMidi(result.midi);
       setIsReal(result.real);
+      setIsCurated(false);
+      setCuratedAttribution(null);
+      setActiveCuratedId(null);
+      setIsDownloadable(true);
       if (result.real) void fetchDailyCount();
       audioEngine.loadMidi(result.midi, instrument);
       audioEngine.setBpm(result.bpm);
@@ -177,6 +192,58 @@ function LandingPage() {
     }
   }, [buffer, fetchDailyCount, file, instrument, session]);
 
+  const handleSelectCurated = useCallback(async (song: CuratedMidi) => {
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+    setBusy(true);
+    setOverlayOpen(true);
+    setProgress(0);
+    setStage('Loading curated MIDI');
+    try {
+      setFile(null);
+      setBuffer(null);
+      audioEngine.stop();
+      audioEngine.setSource('synth');
+
+      await audioEngine.loadInstruments();
+      setProgress(30);
+      setStage('Fetching MIDI file');
+
+      const { data, error } = await supabase.storage.from('midi-files').download(song.filename);
+      if (error) throw error;
+      if (!data) throw new Error('No data received from storage');
+      const arrayBuffer = await data.arrayBuffer();
+
+      setProgress(70);
+      setStage('Decoding MIDI track');
+      const loadedMidi = new Midi(arrayBuffer);
+
+      audioEngine.loadMidi(loadedMidi, instrument);
+      const bpm = loadedMidi.header.tempos[0]?.bpm ?? 120;
+      audioEngine.setBpm(bpm);
+
+      setMidi(loadedMidi);
+      setIsReal(true);
+      setIsCurated(true);
+      setCuratedAttribution(song.attribution);
+      setActiveCuratedId(song.id);
+      setIsDownloadable(song.downloadable);
+
+      audioEngine.restart();
+      setProgress(100);
+      await new Promise((r) => setTimeout(r, 200));
+      setOverlayOpen(false);
+      setTimeout(() => scrollTo(visualizerRef.current), 250);
+    } catch (e) {
+      setOverlayOpen(false);
+      console.error('Failed to load curated MIDI:', e);
+    } finally {
+      setBusy(false);
+    }
+  }, [instrument, session]);
+
   return (
     <DesktopGate>
       <header className="fixed top-0 right-0 z-50 p-4">
@@ -196,6 +263,9 @@ function LandingPage() {
             audioBuffer={buffer}
             fileName={file?.name ?? null}
             busy={busy}
+            curatedMidis={curatedMidis}
+            onSelectCurated={handleSelectCurated}
+            activeCuratedId={activeCuratedId}
           />
         </div>
 
@@ -207,8 +277,11 @@ function LandingPage() {
             <VisualizerComponent
               midi={midi}
               instrument={instrument}
-              fileName={file?.name ?? 'Demo · Mock MIDI'}
+              fileName={file?.name ?? (curatedMidis.find(s => s.id === activeCuratedId)?.title ?? 'Demo · Mock MIDI')}
               isRealTranscription={isReal}
+              isCurated={isCurated}
+              curatedAttribution={curatedAttribution}
+              isDownloadable={isDownloadable}
             />
           ) : (
             <div className="text-center text-muted font-mono text-sm py-20">

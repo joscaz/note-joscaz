@@ -16,8 +16,10 @@ type HealthState = 'unknown' | 'ready' | 'offline';
  */
 export function BackendStatus({
   isRealResult,
+  isCurated,
 }: {
   isRealResult: boolean;
+  isCurated?: boolean;
 }) {
   const [health, setHealth] = useState<HealthState>('unknown');
 
@@ -48,7 +50,7 @@ export function BackendStatus({
     };
   }, []);
 
-  const { dot, label, title } = presentation(isRealResult, health);
+  const { dot, label, title } = presentation(isRealResult, health, isCurated);
 
   return (
     <div
@@ -67,7 +69,15 @@ export function BackendStatus({
 function presentation(
   isRealResult: boolean,
   health: HealthState,
+  isCurated?: boolean,
 ): { dot: string; label: string; title: string } {
+  if (isCurated) {
+    return {
+      dot: '#00f5a0',
+      label: 'Official MIDI · Library',
+      title: 'This is a curated, high-accuracy official MIDI asset.',
+    };
+  }
   if (isRealResult) {
     return {
       dot: '#00f5a0',

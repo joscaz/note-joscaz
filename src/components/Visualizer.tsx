@@ -14,9 +14,20 @@ interface VisualizerProps {
   instrument: InstrumentType;
   fileName: string | null;
   isRealTranscription: boolean;
+  isCurated?: boolean;
+  curatedAttribution?: string | null;
+  isDownloadable?: boolean;
 }
 
-export function Visualizer({ midi, instrument, fileName, isRealTranscription }: VisualizerProps) {
+export function Visualizer({
+  midi,
+  instrument,
+  fileName,
+  isRealTranscription,
+  isCurated,
+  curatedAttribution,
+  isDownloadable = true,
+}: VisualizerProps) {
   const player = useAudioPlayer();
   const [scrollSpeed, setScrollSpeed] = useState(220);
 
@@ -49,7 +60,7 @@ export function Visualizer({ midi, instrument, fileName, isRealTranscription }: 
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.4em] text-muted font-mono">
-            {instrument === 'piano' ? 'Piano Transcription' : 'Guitar → MIDI'}
+            {isCurated ? 'Official Classical MIDI' : (instrument === 'piano' ? 'Piano Transcription' : 'Guitar → MIDI')}
           </div>
           <h2 className="font-display text-3xl md:text-5xl font-extrabold text-text">Note Joscaz</h2>
           {fileName && (
@@ -57,9 +68,17 @@ export function Visualizer({ midi, instrument, fileName, isRealTranscription }: 
               {fileName}
             </div>
           )}
+          {isCurated && curatedAttribution && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] text-muted font-mono">
+              <svg className="w-3.5 h-3.5 text-piano-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
+              <span>Arranger: <strong className="text-text font-semibold">{curatedAttribution}</strong></span>
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <BackendStatus isRealResult={isRealTranscription} />
+          <BackendStatus isRealResult={isRealTranscription} isCurated={isCurated} />
           <div className="text-right font-mono text-xs text-muted space-y-0.5">
             <div>Notes: <span className="text-text">{notes.length}</span></div>
             <div>Tracks: <span className="text-text">{midi.tracks.length}</span></div>
@@ -95,6 +114,7 @@ export function Visualizer({ midi, instrument, fileName, isRealTranscription }: 
         onScrollSpeedChange={setScrollSpeed}
         midi={midi}
         instrument={instrument}
+        isDownloadable={isDownloadable}
       />
 
       <StatsGrid notes={notes} midi={midi} />
