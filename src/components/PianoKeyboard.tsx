@@ -14,14 +14,14 @@ interface PianoKeyboardProps {
   instrument: InstrumentType;
   /** Ref that the parent updates every frame with currently-sounding midis. */
   activeNotesRef: React.RefObject<Set<number>>;
-  height?: number;
+  range?: { low: number; high: number };
 }
 
-export function PianoKeyboard({ instrument, activeNotesRef, height = 200 }: PianoKeyboardProps) {
+export function PianoKeyboard({ instrument, activeNotesRef, range }: PianoKeyboardProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const layoutRef = useRef<KeyRect[]>([]);
-  const sizeRef = useRef({ w: 0, h: height });
+  const sizeRef = useRef({ w: 0, h: 64 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -33,14 +33,15 @@ export function PianoKeyboard({ instrument, activeNotesRef, height = 200 }: Pian
     const resize = () => {
       const rect = container.getBoundingClientRect();
       const w = Math.max(320, rect.width);
+      const h = Math.max(64, rect.height);
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = w * dpr;
-      canvas.height = height * dpr;
+      canvas.height = h * dpr;
       canvas.style.width = `${w}px`;
-      canvas.style.height = `${height}px`;
+      canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      layoutRef.current = buildKeyLayout(w);
-      sizeRef.current = { w, h: height };
+      layoutRef.current = buildKeyLayout(w, range);
+      sizeRef.current = { w, h };
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -103,11 +104,11 @@ export function PianoKeyboard({ instrument, activeNotesRef, height = 200 }: Pian
       cancelAnimationFrame(rafId);
       ro.disconnect();
     };
-  }, [instrument, height, activeNotesRef]);
+  }, [instrument, activeNotesRef, range]);
 
   return (
     <div ref={containerRef} className="w-full">
-      <canvas ref={canvasRef} aria-label={`${instrument} keyboard (${MIDI_LOW}..${MIDI_HIGH})`} />
+      <canvas ref={canvasRef} aria-label={`${instrument} keyboard (${range?.low ?? MIDI_LOW}..${range?.high ?? MIDI_HIGH})`} />
     </div>
   );
 }

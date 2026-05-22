@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { Midi } from '@tonejs/midi';
 import { Scene } from './scene/Scene';
 import { ThemeControls } from './scene/ThemeControls';
@@ -29,6 +30,8 @@ export function Visualizer3D({
   isDownloadable = true,
 }: Visualizer3DProps) {
   const player = useAudioPlayer();
+  const isMobile = useMediaQuery('(max-width: 639px)');
+  const [mobileWarningDismissed, setMobileWarningDismissed] = useState(false);
   // Slider value kept in legacy "px/sec" range (80..600) for PlaybackControls
   // compatibility; converted to scene-space units/sec before reaching FallingBars.
   const [scrollSpeed, setScrollSpeed] = useState(220);
@@ -112,8 +115,21 @@ export function Visualizer3D({
         </div>
       </div>
 
+      {isMobile && !mobileWarningDismissed && (
+        <div className="flex items-center justify-between bg-yellow-900/80 text-yellow-200 text-sm px-4 py-2 rounded-xl">
+          <span>3D mode may be slow on mobile devices</span>
+          <button
+            onClick={() => setMobileWarningDismissed(true)}
+            className="ml-4 text-yellow-200/60 hover:text-yellow-200 transition-colors"
+            aria-label="Dismiss warning"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="glass rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-        <div ref={containerRef} style={{ height: '70vh', minHeight: 600 }}>
+        <div ref={containerRef} style={{ height: '70vh', minHeight: isMobile ? 320 : 600 }}>
           {hasEntered ? (
             <Scene
               instrument={instrument}

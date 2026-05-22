@@ -47,36 +47,40 @@ export interface KeyRect {
 }
 
 /**
- * Build an 88-entry table mapping each midi number (21..108) to {x,width}
- * positioned across `canvasWidth`. White keys are evenly spaced; black keys
- * sit on top of the gap between two white keys with width = 0.58 * whiteWidth.
+ * Build a layout table mapping each midi number in [low..high] to {x,width}
+ * positioned across `canvasWidth`. When `range` is omitted the full 88-key
+ * span (MIDI 21–108) is used. White keys are evenly spaced; black keys sit
+ * on top of the gap between two white keys with width = 0.58 * whiteWidth.
  */
-export function buildKeyLayout(canvasWidth: number): KeyRect[] {
-  const whiteWidth = canvasWidth / WHITE_KEY_COUNT;
+export function buildKeyLayout(
+  canvasWidth: number,
+  range?: { low: number; high: number },
+): KeyRect[] {
+  const low = range?.low ?? MIDI_LOW;
+  const high = range?.high ?? MIDI_HIGH;
+
+  let whiteCount = 0;
+  for (let m = low; m <= high; m++) {
+    if (!isBlackKey(m)) whiteCount++;
+  }
+
+  const whiteWidth = canvasWidth / (whiteCount || 1);
   const blackWidth = whiteWidth * 0.58;
 
-  // First pass: collect white key x positions.
   const layout: KeyRect[] = [];
   let whiteIdx = 0;
-  for (let midi = MIDI_LOW; midi <= MIDI_HIGH; midi++) {
+  for (let midi = low; midi <= high; midi++) {
     if (!isBlackKey(midi)) {
-      layout.push({
-        midi,
-        x: whiteIdx * whiteWidth,
-        width: whiteWidth,
-        isBlack: false,
-      });
+      layout.push({ midi, x: whiteIdx * whiteWidth, width: whiteWidth, isBlack: false });
       whiteIdx++;
     } else {
       layout.push({ midi, x: 0, width: 0, isBlack: true });
     }
   }
 
-  // Second pass: position black keys between their neighbouring white keys.
   for (let i = 0; i < layout.length; i++) {
     const rect = layout[i];
     if (!rect.isBlack) continue;
-    // Find the previous white key.
     let prev = i - 1;
     while (prev >= 0 && layout[prev].isBlack) prev--;
     const prevWhite = layout[prev];
@@ -88,9 +92,14 @@ export function buildKeyLayout(canvasWidth: number): KeyRect[] {
   return layout;
 }
 
-export function midiToKeyRect(midi: number, layout: KeyRect[]): KeyRect | undefined {
-  if (midi < MIDI_LOW || midi > MIDI_HIGH) return undefined;
-  return layout[midi - MIDI_LOW];
+export function midiToKeyRect(
+  midi: number,
+  layout: KeyRect[],
+  rangeLow = MIDI_LOW,
+): KeyRect | undefined {
+  const idx = midi - rangeLow;
+  if (idx < 0 || idx >= layout.length) return undefined;
+  return layout[idx];
 }
 
 // Exported for debug / display purposes.

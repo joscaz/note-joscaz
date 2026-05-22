@@ -6,7 +6,6 @@ import { ProcessingOverlay } from './components/ProcessingOverlay';
 import { Visualizer } from './components/Visualizer';
 import { Visualizer3D } from './components/Visualizer3D';
 import { Footer } from './components/Footer';
-import { DesktopGate } from './components/DesktopGate';
 import { TrainingPage } from './components/TrainingPage';
 import { AuthPage } from './components/AuthPage';
 import { useHashRoute, navigate } from './hooks/useHashRoute';
@@ -53,18 +52,10 @@ function VizModeToggle({ value, onChange }: { value: VizMode; onChange: (v: VizM
 export default function App() {
   const route = useHashRoute();
   if (route.startsWith('/training')) {
-    return (
-      <DesktopGate>
-        <TrainingPage />
-      </DesktopGate>
-    );
+    return <TrainingPage />;
   }
   if (route.startsWith('/login') || route.startsWith('/signup')) {
-    return (
-      <DesktopGate>
-        <AuthPage />
-      </DesktopGate>
-    );
+    return <AuthPage />;
   }
   return <LandingPage />;
 }
@@ -245,7 +236,7 @@ function LandingPage() {
   }, [instrument, session]);
 
   return (
-    <DesktopGate>
+    <>
       <header className="fixed top-0 right-0 z-50 p-4">
         <AuthBadge />
       </header>
@@ -295,6 +286,6 @@ function LandingPage() {
         <ProcessingOverlay open={overlayOpen} progress={progress} stage={stage} instrument={instrument} />
         <LimitReachedDialog open={limitReached} onClose={() => setLimitReached(false)} />
       </main>
-    </DesktopGate>
+    </>
   );
 }

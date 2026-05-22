@@ -16,6 +16,7 @@ export interface PianoRollOptions {
   scrollSpeedRef: React.RefObject<number>; // px/s
   activeNotesRef: React.RefObject<Set<number>>;
   bpmRef: React.RefObject<number>;
+  rangeRef?: React.RefObject<{ low: number; high: number } | undefined>;
 }
 
 /**
@@ -27,7 +28,7 @@ export interface PianoRollOptions {
  * on the same Transport clock).
  */
 export function startPianoRoll(opts: PianoRollOptions): () => void {
-  const { canvas, container, notesRef, instrumentRef, scrollSpeedRef, activeNotesRef, bpmRef } = opts;
+  const { canvas, container, notesRef, instrumentRef, scrollSpeedRef, activeNotesRef, bpmRef, rangeRef } = opts;
   const ctx = canvas.getContext('2d');
   if (!ctx) return () => undefined;
 
@@ -50,7 +51,7 @@ export function startPianoRoll(opts: PianoRollOptions): () => void {
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    layout = buildKeyLayout(width);
+    layout = buildKeyLayout(width, rangeRef?.current ?? undefined);
   };
   resize();
   const ro = new ResizeObserver(resize);
@@ -68,6 +69,8 @@ export function startPianoRoll(opts: PianoRollOptions): () => void {
 
     const instrument = instrumentRef.current ?? 'piano';
     const grad = NOTE_GRADIENTS[instrument];
+    const rangeLow = rangeRef?.current?.low ?? MIDI_LOW;
+    const rangeHigh = rangeRef?.current?.high ?? MIDI_HIGH;
     const scrollSpeed = scrollSpeedRef.current ?? 200;
     const notes = notesRef.current ?? [];
     const hitLineY = height * hitLineRatio;
@@ -124,8 +127,8 @@ export function startPianoRoll(opts: PianoRollOptions): () => void {
       const noteEnd = n.time + n.duration;
       if (noteEnd < windowStart) continue;
       if (n.time > windowEnd) break;
-      if (n.midi < MIDI_LOW || n.midi > MIDI_HIGH) continue;
-      const rect = layout[n.midi - MIDI_LOW];
+      if (n.midi < rangeLow || n.midi > rangeHigh) continue;
+      const rect = layout[n.midi - rangeLow];
       if (!rect) continue;
 
       const topY = hitLineY - (noteEnd - t) * scrollSpeed;
@@ -215,8 +218,8 @@ export function startPianoRoll(opts: PianoRollOptions): () => void {
     const active = activeNotesRef.current;
     if (active && active.size > 0) {
       for (const midi of active) {
-        if (midi < MIDI_LOW || midi > MIDI_HIGH) continue;
-        const rect = layout[midi - MIDI_LOW];
+        if (midi < rangeLow || midi > rangeHigh) continue;
+        const rect = layout[midi - rangeLow];
         if (!rect) continue;
         const cx = rect.x + rect.width / 2;
         const glowGrad = ctx.createRadialGradient(cx, hitLineY, 0, cx, hitLineY, 60);

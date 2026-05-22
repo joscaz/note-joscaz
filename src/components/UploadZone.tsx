@@ -23,6 +23,8 @@ interface UploadZoneProps {
   activeCuratedId: string | null;
 }
 
+const isTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+
 export function UploadZone({
   instrument,
   onInstrumentChange,
@@ -137,7 +139,7 @@ export function UploadZone({
               </svg>
             </motion.div>
             <div className="font-display font-bold text-xl">
-              {decoding ? 'Decoding…' : fileName ? 'File loaded — drop another to replace' : 'Drag & drop audio here'}
+              {decoding ? 'Decoding…' : fileName ? 'File loaded — drop another to replace' : isTouch ? 'Tap to choose audio' : 'Drag & drop audio here'}
             </div>
             <div className="text-xs font-mono text-muted uppercase tracking-wider">
               or click to browse

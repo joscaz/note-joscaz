@@ -95,117 +95,117 @@ export function PlaybackControls({
         <span className="font-mono text-xs text-muted w-14 tabular-nums text-right">{fmt(player.duration)}</span>
       </div>
 
-      {/* Row 1: transport */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <ControlButton title="Restart (R)" onClick={player.restart}>⏮</ControlButton>
-          <ControlButton title="Back 5s (←)" onClick={() => player.seekBy(-5)}>⏪</ControlButton>
-          <PlayButton playing={player.isPlaying} onClick={() => void player.toggle()} grad={grad} />
-          <ControlButton title="Forward 5s (→)" onClick={() => player.seekBy(5)}>⏩</ControlButton>
-          <ControlButton title="End" onClick={() => player.seek(player.duration)}>⏭</ControlButton>
-        </div>
+      {/* Row 1: transport + toggles | Row 2 on mobile: sliders */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+        {/* Sub-row 1: transport controls + toggles */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
+            <ControlButton title="Restart (R)" onClick={player.restart}>⏮</ControlButton>
+            <ControlButton title="Back 5s (←)" onClick={() => player.seekBy(-5)}>⏪</ControlButton>
+            <PlayButton playing={player.isPlaying} onClick={() => void player.toggle()} grad={grad} />
+            <ControlButton title="Forward 5s (→)" onClick={() => player.seekBy(5)}>⏩</ControlButton>
+            <ControlButton title="End" onClick={() => player.seek(player.duration)}>⏭</ControlButton>
+          </div>
 
-        <div className="h-6 w-px bg-white/10" />
+          <div className="hidden sm:block h-6 w-px bg-white/10" />
 
-        {/* BPM */}
-        <label className="flex items-center gap-2 text-xs font-mono text-muted">
-          <span>BPM</span>
-          <input
-            type="number"
-            min={40}
-            max={240}
-            value={Math.round(player.bpm)}
-            onChange={(e) => player.setBpm(parseInt(e.target.value, 10) || 120)}
-            className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-text tabular-nums"
-          />
-        </label>
-
-        {/* Scroll speed */}
-        <label className="flex items-center gap-2 text-xs font-mono text-muted">
-          <span>SCROLL</span>
-          <input
-            type="range"
-            min={80}
-            max={600}
-            step={10}
-            value={scrollSpeed}
-            onChange={(e) => onScrollSpeedChange(parseInt(e.target.value, 10))}
-            className="w-32 accent-[color:var(--accent)]"
-            style={{ ['--accent' as string]: grad.top } as React.CSSProperties}
-          />
-          <span className="tabular-nums w-12 text-text">{scrollSpeed}</span>
-        </label>
-
-        <div className="h-6 w-px bg-white/10" />
-
-        {/* Volume */}
-        <label className="flex items-center gap-2 text-xs font-mono text-muted">
-          <span>VOL</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={player.volume}
-            onChange={(e) => player.setVolume(parseFloat(e.target.value))}
-            className="w-32 accent-[color:var(--accent)]"
-            style={{ ['--accent' as string]: grad.top } as React.CSSProperties}
-            title="Volume"
-            aria-label="Volume"
-          />
-          <span className="tabular-nums w-8 text-text">{Math.round(player.volume * 100)}</span>
-        </label>
-
-        <div className="h-6 w-px bg-white/10" />
-
-        {/* Loop */}
-        <button
-          onClick={() => player.setLoop(!player.loop)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-colors ${
-            player.loop
-              ? 'bg-white/10 border-white/30 text-text'
-              : 'border-white/10 text-muted hover:text-text hover:border-white/20'
-          }`}
-          title="Loop (L)"
-        >
-          Loop
-        </button>
-
-        {/* Piano-only: sustain toggle. The transcription model emits only
-            onsets, so any "sustain" is synthesized on playback. On = let
-            each sample decay naturally (rich, piano-y). Off = cut each note
-            at the short UX duration for a staccato / pedal-up feel. */}
-        {instrument === 'piano' && (
+          {/* Loop */}
           <button
-            onClick={() => player.setPianoSustain(!player.pianoSustain)}
+            onClick={() => player.setLoop(!player.loop)}
             className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-colors ${
-              player.pianoSustain
+              player.loop
                 ? 'bg-white/10 border-white/30 text-text'
                 : 'border-white/10 text-muted hover:text-text hover:border-white/20'
             }`}
-            title={
-              player.pianoSustain
-                ? 'Sustain ON — notes ring out naturally'
-                : 'Sustain OFF — staccato / pedal-up'
-            }
+            title="Loop (L)"
           >
-            Sustain
+            Loop
           </button>
-        )}
 
-        {/* A/B source switch */}
-        <ABSwitch value={player.source} onChange={player.setSource} color={grad.top} />
+          {/* Piano-only: sustain toggle. The transcription model emits only
+              onsets, so any "sustain" is synthesized on playback. On = let
+              each sample decay naturally (rich, piano-y). Off = cut each note
+              at the short UX duration for a staccato / pedal-up feel. */}
+          {instrument === 'piano' && (
+            <button
+              onClick={() => player.setPianoSustain(!player.pianoSustain)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-colors ${
+                player.pianoSustain
+                  ? 'bg-white/10 border-white/30 text-text'
+                  : 'border-white/10 text-muted hover:text-text hover:border-white/20'
+              }`}
+              title={
+                player.pianoSustain
+                  ? 'Sustain ON — notes ring out naturally'
+                  : 'Sustain OFF — staccato / pedal-up'
+              }
+            >
+              Sustain
+            </button>
+          )}
 
-        {isDownloadable && (
-          <div className="ml-auto flex items-center gap-2">
+          {/* A/B source switch */}
+          <ABSwitch value={player.source} onChange={player.setSource} color={grad.top} />
+
+          {isDownloadable && (
             <button
               onClick={() => downloadMidi(midi, `notejoscaz-${instrument}.mid`)}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors sm:ml-auto"
             >
               ↓ MIDI
             </button>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Sub-row 2: sliders (BPM, scroll speed, volume) */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* BPM */}
+          <label className="flex items-center gap-2 text-xs font-mono text-muted">
+            <span>BPM</span>
+            <input
+              type="number"
+              min={40}
+              max={240}
+              value={Math.round(player.bpm)}
+              onChange={(e) => player.setBpm(parseInt(e.target.value, 10) || 120)}
+              className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-text tabular-nums"
+            />
+          </label>
+
+          {/* Scroll speed */}
+          <label className="flex items-center gap-2 text-xs font-mono text-muted">
+            <span>SCROLL</span>
+            <input
+              type="range"
+              min={80}
+              max={600}
+              step={10}
+              value={scrollSpeed}
+              onChange={(e) => onScrollSpeedChange(parseInt(e.target.value, 10))}
+              className="w-32 accent-[color:var(--accent)]"
+              style={{ ['--accent' as string]: grad.top } as React.CSSProperties}
+            />
+            <span className="tabular-nums w-12 text-text">{scrollSpeed}</span>
+          </label>
+
+          {/* Volume */}
+          <label className="flex items-center gap-2 text-xs font-mono text-muted">
+            <span>VOL</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={player.volume}
+              onChange={(e) => player.setVolume(parseFloat(e.target.value))}
+              className="w-32 accent-[color:var(--accent)]"
+              style={{ ['--accent' as string]: grad.top } as React.CSSProperties}
+              title="Volume"
+              aria-label="Volume"
+            />
+            <span className="tabular-nums w-8 text-text">{Math.round(player.volume * 100)}</span>
+          </label>
+        </div>
       </div>
 
       {/* Progress shimmer under controls */}

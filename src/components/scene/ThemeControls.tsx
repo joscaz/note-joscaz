@@ -3,6 +3,7 @@ import { useThemeStore } from '../../services/themeStore';
 import type { PresetName } from '../../types/theme';
 import { PRESETS } from '../../themes/presets';
 import { useState } from 'react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 /**
  * Leva-driven live tuning panel.
@@ -15,7 +16,9 @@ import { useState } from 'react';
  * clobber the preset via deepMerge.
  */
 export function ThemeControls() {
+  const isMobile = useMediaQuery('(max-width: 639px)');
   const presetName = useThemeStore((s) => s.presetName);
+  if (isMobile) return null;
   return <InnerPanel key={presetName} />;
 }
 

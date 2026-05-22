@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { Midi } from '@tonejs/midi';
 import { PianoRoll } from './PianoRoll';
 import { PianoKeyboard } from './PianoKeyboard';
@@ -30,6 +31,7 @@ export function Visualizer({
 }: VisualizerProps) {
   const player = useAudioPlayer();
   const [scrollSpeed, setScrollSpeed] = useState(220);
+  const isMobile = useMediaQuery('(max-width: 639px)');
 
   // Flatten notes once per midi/instrument change.
   const notes = useMemo<NoteEvent[]>(() => {
@@ -45,6 +47,16 @@ export function Visualizer({
 
   const notesRef = useRef<readonly NoteEvent[]>(notes);
   useEffect(() => { notesRef.current = notes; }, [notes]);
+
+  const activeRange = useMemo(() => {
+    if (!isMobile || notes.length === 0) return undefined;
+    let low = Infinity, high = -Infinity;
+    for (const n of notes) {
+      if (n.midi < low) low = n.midi;
+      if (n.midi > high) high = n.midi;
+    }
+    return { low: Math.max(0, low - 2), high: Math.min(127, high + 2) };
+  }, [isMobile, notes]);
 
   const activeNotesRef = useRef<Set<number>>(new Set());
 
@@ -88,7 +100,7 @@ export function Visualizer({
       </div>
 
       <div className="glass rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-        <div className="relative" style={{ height: '60vh', minHeight: 540 }}>
+        <div className="relative" style={{ height: '60vh', minHeight: isMobile ? 280 : 540 }}>
           <div className="absolute inset-x-0 top-0" style={{ height: '75%' }}>
             <PianoRoll
               notesRef={notesRef}
@@ -96,13 +108,14 @@ export function Visualizer({
               instrument={instrument}
               scrollSpeed={scrollSpeed}
               bpm={player.bpm}
+              range={activeRange}
             />
           </div>
           <div className="absolute inset-x-0 bottom-0" style={{ height: '25%' }}>
             <PianoKeyboard
               instrument={instrument}
               activeNotesRef={activeNotesRef}
-              height={Math.floor(window.innerHeight * 0.6 * 0.25)}
+              range={activeRange}
             />
           </div>
         </div>
