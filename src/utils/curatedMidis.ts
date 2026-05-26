@@ -6,7 +6,6 @@ export interface CuratedMidi {
   filename: string;
   attribution: string;
   genre: 'Classical' | 'Pop/Modern' | 'Game/Anime' | 'Special';
-  downloadable: boolean;
 }
 
 export const curatedMidis: CuratedMidi[] = [
@@ -18,7 +17,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_debussy_arabesque_no_1_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "debussy-clair-de-lune",
@@ -28,7 +26,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_debussy_clair_de_lune_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "debussy-reflets-dans-leau-images",
@@ -38,7 +35,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_debussy_reflets_dans_leau_images_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "satie-gymnopedie-no-1",
@@ -48,7 +44,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_satie_gymnopedie_no_1_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "liszt-consolation-no-3",
@@ -58,7 +53,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_liszt_consolation_no_3_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "liszt-hungarian-rhapsody-no-6",
@@ -68,7 +62,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_liszt_hungarian_rhapsody_no_6_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "liszt-hungarian-rhapsody-no-2",
@@ -78,7 +71,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_liszt_hungarian_rhapsody_no_2_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "paganini-liszt-la-campanella",
@@ -88,7 +80,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_paganini_liszt_la_campanella_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "liszt-liebestraum-no-3",
@@ -98,7 +89,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_liszt_liebestraum_no_3_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "liszt-un-sospiro",
@@ -108,7 +98,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_liszt_un_sospiro_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "schubert-serenade-arr-liszt",
@@ -118,7 +107,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_schubert_serenade_arr_liszt_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-ballade-no-1-in-g-minor-op-23",
@@ -128,7 +116,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_ballade_no_1_in_g_minor_op_23_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-etude-op-10-no-1-waterfall",
@@ -138,7 +125,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_etude_op_10_no_1_waterfall_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-etude-op-10-no-3",
@@ -148,7 +134,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_etude_op_10_no_3_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-etude-op-10-no-4",
@@ -158,7 +143,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_etude_op_10_no_4_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-etude-op-10-no-5-black-keys",
@@ -168,7 +152,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_etude_op_10_no_5_black_keys_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-etude-op-25-no-11-winter-wind",
@@ -178,7 +161,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_etude_op_25_no_11_winter_wind_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-etude-op-25-no-12-ocean",
@@ -188,7 +170,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_etude_op_25_no_12_ocean_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-fantaisie-impromptu-op-66",
@@ -198,7 +179,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_fantaisie_impromptu_op_66_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-marche-funebre",
@@ -208,7 +188,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_marche_funebre_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-minute-waltz-op-64-no-1",
@@ -218,7 +197,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_minute_waltz_op_64_no_1_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-nocturne-no-20-in-c-minor",
@@ -228,7 +206,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_nocturne_no_20_in_c_minor_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-nocturne-in-e-flat-major-op-9-no-2",
@@ -238,7 +215,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_nocturne_in_e_flat_major_op_9_no_2_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-prelude-op-28-no-6",
@@ -248,7 +224,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_prelude_op_28_no_6_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-prelude-in-e-minor-op-28-no-4",
@@ -258,7 +233,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_prelude_in_e_minor_op_28_no_4_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-revolutionary-etude-op-10-no-12",
@@ -268,7 +242,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_chopin_revolutionary_etude_op_10_no_12_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "js-bach-prelude-in-c",
@@ -278,7 +251,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_js_bach_prelude_in_c_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "beethoven-fur-elise",
@@ -288,7 +260,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_beethoven_fur_elise_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "beethoven-moonlight-sonata-mvt-1",
@@ -298,7 +269,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_beethoven_moonlight_sonata_mvt_1_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "beethoven-moonlight-sonata-mvt-2",
@@ -308,7 +278,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_beethoven_moonlight_sonata_mvt_2_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "beethoven-moonlight-sonata-mvt-3",
@@ -318,7 +287,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_beethoven_moonlight_sonata_mvt_3_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "rimsky-korsakov-flight-of-the-bumblebee-arr-rachmaninoff",
@@ -328,7 +296,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_rimsky_korsakov_flight_of_the_bumblebee_arr_rachmaninoff_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "rachmaninoff-little-red-riding-hood-op-39-no-6",
@@ -338,7 +305,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_rachmaninoff_little_red_riding_hood_op_39_no_6_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "rachmaninoff-prelude-in-c-sharp-minor-op-3-no-2",
@@ -348,7 +314,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_rachmaninoff_prelude_in_c_sharp_minor_op_3_no_2_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "rachmaninoff-prelude-in-g-minor-op-23-no-5",
@@ -358,7 +323,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_rachmaninoff_prelude_in_g_minor_op_23_no_5_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "chopin-heroic-polonaise-op53",
@@ -368,7 +332,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "chopin_heroic_polonaise_op53.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: true
   },
   {
     id: "debussy-reverie",
@@ -378,7 +341,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "debussy_reverie.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: true
   },
   {
     id: "mozart-rondo-alla-turca",
@@ -388,7 +350,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_mozart_rondo_alla_turca_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Classical",
-    downloadable: false
   },
   {
     id: "alan-walker-darkside",
@@ -398,7 +359,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_alan_walker_darkside_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "k-391-and-alan-walker-ignite-ft-julie-bergan-and-seungri",
@@ -408,7 +368,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_k_391_and_alan_walker_ignite_ft_julie_bergan_and_seungri_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "coldplay-the-scientist",
@@ -418,7 +377,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_coldplay_the_scientist_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "ludovico-einaudi-fly",
@@ -428,7 +386,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_ludovico_einaudi_fly_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "ludovico-einaudi-nuvole-bianche",
@@ -438,7 +395,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_ludovico_einaudi_nuvole_bianche_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "ludovico-einaudi-una-mattina",
@@ -448,7 +404,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_ludovico_einaudi_una_mattina_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "maroon-5-ft-cardi-b-girls-like-you",
@@ -458,7 +413,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_maroon_5_ft_cardi_b_girls_like_you_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "marshmello-and-anne-marie-friends",
@@ -468,7 +422,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_marshmello_and_anne_marie_friends_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "marshmello-ft-bastille-happier",
@@ -478,7 +431,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_marshmello_ft_bastille_happier_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "post-malone-congratulations",
@@ -488,7 +440,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_post_malone_congratulations_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "post-malone-i-fall-apart",
@@ -498,7 +449,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_post_malone_i_fall_apart_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "thefatrat-mayday-ft-laura-brehm",
@@ -508,7 +458,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_thefatrat_mayday_ft_laura_brehm_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "yann-tiersen-comptine-dun-autre-ete",
@@ -518,7 +467,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_yann_tiersen_comptine_dun_autre_ete_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "yiruma-river-flows-in-you",
@@ -528,7 +476,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_yiruma_river_flows_in_you_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "zedd-one-strange-rock",
@@ -538,7 +485,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_zedd_one_strange_rock_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "zedd-maren-morris-and-grey-the-middle",
@@ -548,7 +494,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_zedd_maren_morris_and_grey_the_middle_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Pop/Modern",
-    downloadable: false
   },
   {
     id: "fortnite-piano-medley",
@@ -558,7 +503,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_fortnite_piano_medley_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Game/Anime",
-    downloadable: false
   },
   {
     id: "kingdom-hearts-dearly-beloved",
@@ -568,7 +512,6 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_kingdom_hearts_dearly_beloved_rousseau_cover_midi.mid",
     attribution: "Rousseau",
     genre: "Game/Anime",
-    downloadable: false
   },
   {
     id: "happy-birthday-if-it-were-played-by-liszt",
@@ -578,6 +521,5 @@ export const curatedMidis: CuratedMidi[] = [
     filename: "rousseau_happy_birthday_if_it_were_played_by_liszt_rousseau_midi.mid",
     attribution: "Rousseau",
     genre: "Special",
-    downloadable: false
   }
 ];

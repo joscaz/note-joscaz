@@ -266,7 +266,7 @@ function LandingPage() {
       setMidiUploadError(null);
       setCuratedAttribution(song.attribution);
       setActiveCuratedId(song.id);
-      setIsDownloadable(song.downloadable);
+      setIsDownloadable(false);
 
       audioEngine.restart();
       setProgress(100);
