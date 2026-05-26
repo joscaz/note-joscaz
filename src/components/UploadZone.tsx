@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { InstrumentSelector } from './InstrumentSelector';
 import { downsampleWaveform } from '../services/audioDecoder';
 import { useAuthStore } from '../services/authStore';
+import { navigate } from '../hooks/useHashRoute';
 import type { InstrumentType } from '../utils/noteColors';
 import { NOTE_GRADIENTS } from '../utils/noteColors';
 import type { CuratedMidi } from '../utils/curatedMidis';
@@ -21,6 +22,8 @@ interface UploadZoneProps {
   curatedMidis: CuratedMidi[];
   onSelectCurated: (song: CuratedMidi) => void;
   activeCuratedId: string | null;
+  onMidiUpload?: (file: File) => void;
+  midiError?: string | null;
 }
 
 const isTouch = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
@@ -38,12 +41,18 @@ export function UploadZone({
   curatedMidis,
   onSelectCurated,
   activeCuratedId,
+  onMidiUpload,
+  midiError,
 }: UploadZoneProps) {
   const user = useAuthStore((s) => s.user);
+  const session = useAuthStore((s) => s.session);
   const [dragOver, setDragOver] = useState(false);
   const [decoding, setDecoding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [midiDragOver, setMidiDragOver] = useState(false);
+  const [midiInputError, setMidiInputError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const midiInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
   const grad = NOTE_GRADIENTS[instrument];
 
@@ -68,6 +77,37 @@ export function UploadZone({
     },
     [decode, onFileReady],
   );
+
+  const handleMidiFile = useCallback(
+    (file: File | undefined) => {
+      if (!file) return;
+      if (!/\.(mid|midi)$/i.test(file.name)) {
+        setMidiInputError('Please upload a .mid or .midi file.');
+        return;
+      }
+      setMidiInputError(null);
+      onMidiUpload?.(file);
+    },
+    [onMidiUpload],
+  );
+
+  const onMidiDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setMidiDragOver(false);
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+    handleMidiFile(e.dataTransfer.files?.[0]);
+  };
+
+  const onMidiZoneClick = () => {
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+    midiInputRef.current?.click();
+  };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -174,6 +214,75 @@ export function UploadZone({
             <Waveform buffer={audioBuffer} color={grad.top} />
           </div>
         )}
+
+        {/* Your MIDI Section */}
+        <div className="mt-12 space-y-6">
+          <div className="text-center space-y-2">
+            <div className="text-xs uppercase tracking-[0.4em] text-muted font-mono">Your MIDI</div>
+            <h3 className="font-display text-2xl md:text-3xl font-extrabold text-text">
+              Upload your own MIDI
+            </h3>
+            <p className="text-muted text-sm max-w-lg mx-auto">
+              Drop a .mid or .midi file to visualize it instantly. No upload to server — stays in your browser for this session only.
+            </p>
+          </div>
+
+          <div
+            onDragOver={(e) => { e.preventDefault(); setMidiDragOver(true); }}
+            onDragLeave={() => setMidiDragOver(false)}
+            onDrop={onMidiDrop}
+            onClick={onMidiZoneClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onMidiZoneClick(); }}
+            className={`relative block rounded-3xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-10 text-center ${
+              midiDragOver ? 'border-white/60 bg-white/[0.04]' : 'border-white/10 hover:border-white/25'
+            }`}
+            style={{
+              boxShadow: midiDragOver ? `0 0 60px ${grad.glow}` : 'none',
+            }}
+          >
+            <input
+              ref={midiInputRef}
+              id="midi-file-input"
+              type="file"
+              accept=".mid,.midi"
+              onChange={(e) => { handleMidiFile(e.target.files?.[0] ?? undefined); e.target.value = ''; }}
+              className="hidden"
+            />
+            <div className="relative z-10 flex flex-col items-center gap-3">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(135deg, ${grad.top}20, ${grad.bottom}20)`,
+                  border: `1px solid ${grad.top}55`,
+                }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={grad.top} strokeWidth="2">
+                  <path d="M9 18V5l12-2v13" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              </div>
+              <div className="font-display font-bold text-xl">
+                {isTouch ? 'Tap to choose MIDI' : 'Drag & drop MIDI here'}
+              </div>
+              <div className="text-xs font-mono text-muted uppercase tracking-wider">
+                or click to browse · .mid / .midi
+              </div>
+            </div>
+          </div>
+
+          {(midiInputError || midiError) && (
+            <div className="text-center text-sm text-pink font-mono">
+              {midiInputError ?? midiError}
+            </div>
+          )}
+
+          <p className="text-center text-xs font-mono text-muted">
+            Loaded for this session only — not saved to server.
+          </p>
+        </div>
 
         {/* Curated Masterpieces Section */}
         <div className="mt-12 space-y-6">

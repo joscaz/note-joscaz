@@ -89,6 +89,9 @@ function LandingPage() {
   const [midi, setMidi] = useState<Midi | null>(null);
   const [isReal, setIsReal] = useState(false);
   const [isCurated, setIsCurated] = useState(false);
+  const [isUserMidi, setIsUserMidi] = useState(false);
+  const [userMidiName, setUserMidiName] = useState<string | null>(null);
+  const [midiUploadError, setMidiUploadError] = useState<string | null>(null);
   const [curatedAttribution, setCuratedAttribution] = useState<string | null>(null);
   const [activeCuratedId, setActiveCuratedId] = useState<string | null>(null);
   const [isDownloadable, setIsDownloadable] = useState(true);
@@ -121,6 +124,9 @@ function LandingPage() {
     setFile(f);
     setBuffer(buf);
     setIsCurated(false);
+    setIsUserMidi(false);
+    setUserMidiName(null);
+    setMidiUploadError(null);
     setCuratedAttribution(null);
     setActiveCuratedId(null);
     setIsDownloadable(true);
@@ -157,6 +163,9 @@ function LandingPage() {
       setMidi(result.midi);
       setIsReal(result.real);
       setIsCurated(false);
+      setIsUserMidi(false);
+      setUserMidiName(null);
+      setMidiUploadError(null);
       setCuratedAttribution(null);
       setActiveCuratedId(null);
       setIsDownloadable(true);
@@ -182,6 +191,40 @@ function LandingPage() {
       setBusy(false);
     }
   }, [buffer, fetchDailyCount, file, instrument, session]);
+
+  const handleUploadMidi = useCallback(async (file: File) => {
+    if (!session) {
+      navigate('/login');
+      return;
+    }
+    setMidiUploadError(null);
+    setBusy(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const loadedMidi = new Midi(arrayBuffer);
+      const bpm = loadedMidi.header.tempos[0]?.bpm ?? 120;
+      await audioEngine.loadInstruments();
+      audioEngine.setBpm(bpm);
+      audioEngine.loadMidi(loadedMidi, instrument);
+      audioEngine.setSource('synth');
+      audioEngine.restart();
+      setMidi(loadedMidi);
+      setIsReal(true);
+      setIsCurated(false);
+      setIsUserMidi(true);
+      setUserMidiName(file.name);
+      setIsDownloadable(true);
+      setFile(null);
+      setBuffer(null);
+      setCuratedAttribution(null);
+      setActiveCuratedId(null);
+      setTimeout(() => scrollTo(visualizerRef.current), 250);
+    } catch {
+      setMidiUploadError('Could not read that MIDI file. Make sure it is a valid .mid or .midi.');
+    } finally {
+      setBusy(false);
+    }
+  }, [instrument, session]);
 
   const handleSelectCurated = useCallback(async (song: CuratedMidi) => {
     if (!session) {
@@ -218,6 +261,9 @@ function LandingPage() {
       setMidi(loadedMidi);
       setIsReal(true);
       setIsCurated(true);
+      setIsUserMidi(false);
+      setUserMidiName(null);
+      setMidiUploadError(null);
       setCuratedAttribution(song.attribution);
       setActiveCuratedId(song.id);
       setIsDownloadable(song.downloadable);
@@ -257,6 +303,8 @@ function LandingPage() {
             curatedMidis={curatedMidis}
             onSelectCurated={handleSelectCurated}
             activeCuratedId={activeCuratedId}
+            onMidiUpload={handleUploadMidi}
+            midiError={midiUploadError}
           />
         </div>
 
@@ -268,7 +316,11 @@ function LandingPage() {
             <VisualizerComponent
               midi={midi}
               instrument={instrument}
-              fileName={file?.name ?? (curatedMidis.find(s => s.id === activeCuratedId)?.title ?? 'Demo · Mock MIDI')}
+              fileName={
+                file?.name
+                  ?? (isUserMidi ? userMidiName : null)
+                  ?? (curatedMidis.find(s => s.id === activeCuratedId)?.title ?? 'Demo · Mock MIDI')
+              }
               isRealTranscription={isReal}
               isCurated={isCurated}
               curatedAttribution={curatedAttribution}
