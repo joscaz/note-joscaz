@@ -2,12 +2,18 @@
 
 Raw Audio → Perfect MIDI. A cinematic, Synthesia-style MIDI visualizer. The UI and visualizer run in the browser; transcription is handled by a self-hosted FastAPI backend.
 
-Upload an MP3 or WAV, pick **Piano** or **Guitar**, and watch the transcribed MIDI play back over your original audio. Flip the **A/B source toggle** to swap between the original recording and the synthesized transcription — same Transport, zero drift.
+Three ways to get MIDI into the visualizer:
+
+1. **Transcribe** — upload an MP3 or WAV, pick **Piano** or **Guitar**, and watch the transcribed MIDI play back over your original audio. Flip the **A/B source toggle** to swap between the original recording and the synthesized transcription — same Transport, zero drift.
+2. **Curated Library** — play high-fidelity hand-crafted MIDI arrangements from the built-in collection, organized by genre and difficulty. Requires sign-in.
+3. **Upload MIDI** — drop your own `.mid` / `.midi` file directly; it is parsed in-browser and visualized instantly without any server round-trip. Session-only (not persisted). Requires sign-in.
 
 Two visualizer modes, switchable from the pill toggle above the stage:
 
 - **Legacy 2D** — hand-written 60fps Canvas 2D falling-note piano roll.
 - **3D (Beta)** — Three.js scene with a Rousseau-style locked camera, instanced falling bars, GPU spark particles, bloom + vignette post-FX, and a live **Leva** tuning panel driven by 5 built-in themes (`default`, `neon`, `fire`, `water`, `crystal`).
+
+Works on both desktop and mobile viewports.
 
 ![NoteJoscaz AI](https://via.placeholder.com/1400x700/050508/00f5a0?text=NoteJoscaz+AI)
 
@@ -39,18 +45,24 @@ npm run build && npm run preview
 
 ## Architecture
 
+Three MIDI sources all converge at the same `audioEngine` pipeline:
+
 ```
-UploadZone  →  audioDecoder  →  transcriptionService  →  Midi
-                                                         │
-                                               audioEngine  (Tone.Transport)
-                                                         │
-                           ┌─────────────────────────────┼─────────────────────────────┐
-                           ▼                             ▼                             ▼
-                    Tone.Player (MP3)           Tone.Sampler / FMSynth         Tone.Transport.seconds
-                       │                              │                                │
-                       └──────── A/B Gain crossfade ──┘                                ▼
-                                      │                                        PianoRoll (rAF)
-                                   Destination                                 PianoKeyboard (rAF)
+UploadZone ──► audioDecoder ──► transcriptionService ──► Midi ─┐
+                                                                │
+CuratedLibrary ──► Supabase Storage ──► new Midi(ArrayBuffer) ─┤
+                                                                │
+UserMidiUpload ──► File.arrayBuffer() ──► new Midi(ArrayBuffer)─┤
+                                                                ▼
+                                                    audioEngine  (Tone.Transport)
+                                                                │
+                           ┌────────────────────────────────────┼──────────────────────────────────┐
+                           ▼                                    ▼                                  ▼
+                    Tone.Player (MP3)              Tone.Sampler / FMSynth              Tone.Transport.seconds
+                       │                                    │                                      │
+                       └──────────── A/B Gain crossfade ───┘                                       ▼
+                                           │                                               PianoRoll (rAF)
+                                        Destination                                        PianoKeyboard (rAF)
 ```
 
 - The visualizer derives position from `Tone.Transport.seconds` **every frame** — never from an accumulated rAF delta — so audio and visuals stay frame-perfect in sync indefinitely. This invariant holds identically in both modes: 2D uses it for y-pixel math, the 3D `FallingBars` uses it to rebuild each instanced bar's matrix.
@@ -143,44 +155,60 @@ If the backend is unreachable the frontend gracefully falls back to mock MIDI so
 ```
 src/
   components/
-    Hero.tsx              ─ full-viewport landing with particle canvas
-    UploadZone.tsx        ─ drag/drop + waveform preview
+    Hero.tsx                  ─ full-viewport landing with particle canvas
+    UploadZone.tsx            ─ audio drag/drop + waveform preview, MIDI upload card, curated library grid
     InstrumentSelector.tsx
-    ProcessingOverlay.tsx ─ 4-stage pipeline animation
-    PianoRoll.tsx         ─ Legacy: falling-notes canvas
-    PianoKeyboard.tsx     ─ Legacy: 88-key canvas
-    Visualizer.tsx        ─ Legacy 2D: composes roll + keyboard + controls
-    Visualizer3D.tsx      ─ 3D Beta: mounts r3f Scene + ThemeControls + shared playback controls
+    ProcessingOverlay.tsx     ─ 4-stage pipeline animation
+    PianoRoll.tsx             ─ Legacy: falling-notes canvas
+    PianoKeyboard.tsx         ─ Legacy: 88-key canvas
+    Visualizer.tsx            ─ Legacy 2D: composes roll + keyboard + controls
+    Visualizer3D.tsx          ─ 3D Beta: mounts r3f Scene + ThemeControls + shared playback controls
+    AuthBadge.tsx             ─ top-right sign-in/out badge
+    AuthModal.tsx             ─ sign-in / sign-up modal (Supabase Auth)
+    AuthPage.tsx              ─ full-page auth route (/login, /signup)
+    BackendStatus.tsx         ─ backend health indicator (polls VITE_TRANSCRIBE_API_URL)
+    LimitReachedDialog.tsx    ─ modal shown when daily transcription limit is hit
+    MidiBackground.tsx        ─ decorative MIDI-note background canvas
+    TrainingPage.tsx          ─ /training route shell
     scene/
-      Scene.tsx           ─ r3f orthographic Canvas + locked cinematic CameraController
-      Piano.tsx           ─ procedural 88-key BoxGeometry + per-key press lerp
-      FallingBars.tsx     ─ InstancedMesh bars, matrix per frame from Transport.seconds
-      Particles.tsx       ─ GPU-driven spark bursts (ShaderMaterial, ring-buffer pool)
-      PostFX.tsx          ─ Bloom (mipmapBlur) + ChromaticAberration + Vignette
-      ThemeControls.tsx   ─ Leva panel bound to themeStore (scoped store per preset)
-    PlaybackControls.tsx  ─ transport, BPM, A/B, download (shared)
-    StatsGrid.tsx         ─ animated stat counters
-    DesktopGate.tsx       ─ best-on-desktop gate for <900px
+      Scene.tsx               ─ r3f orthographic Canvas + locked cinematic CameraController
+      Piano.tsx               ─ procedural 88-key BoxGeometry + per-key press lerp
+      FallingBars.tsx         ─ InstancedMesh bars, matrix per frame from Transport.seconds
+      Particles.tsx           ─ GPU-driven spark bursts (ShaderMaterial, ring-buffer pool)
+      PostFX.tsx              ─ Bloom (mipmapBlur) + ChromaticAberration + Vignette
+      ThemeControls.tsx       ─ Leva panel bound to themeStore (scoped store per preset)
+    training/
+      PianoTraining.tsx       ─ piano training content
+      GuitarTraining.tsx      ─ guitar training content
+      TrainingHero.tsx        ─ training page hero section
+      Prose.tsx               ─ styled prose wrapper for training copy
+    PlaybackControls.tsx      ─ transport, BPM, A/B, download (shared)
+    StatsGrid.tsx             ─ animated stat counters
     Footer.tsx
   services/
-    audioEngine.ts        ─ Tone.js orchestration (MP3 + synth, A/B crossfade)
-    audioDecoder.ts       ─ decodeAudioData + waveform peaks
-    transcriptionService.ts  ← MODEL INTEGRATION POINT
-    midiExporter.ts       ─ .mid file download
-    themeStore.ts         ─ zustand: { theme, presetName, setPreset, updateTheme } (3D)
+    audioEngine.ts            ─ Tone.js orchestration (MP3 + synth, A/B crossfade)
+    audioDecoder.ts           ─ decodeAudioData + waveform peaks
+    transcriptionService.ts   ← MODEL INTEGRATION POINT
+    midiExporter.ts           ─ .mid file download
+    authStore.ts              ─ Zustand store wrapping Supabase Auth (session, user, dailyCount)
+    supabaseClient.ts         ─ Supabase client singleton (auth + storage)
+    themeStore.ts             ─ Zustand: { theme, presetName, setPreset, updateTheme } (3D)
   hooks/
-    useAudioPlayer.ts     ─ React wrapper over audioEngine
-    usePianoRoll.ts       ─ Legacy rAF loop + particle system
+    useAudioPlayer.ts         ─ React wrapper over audioEngine
+    useHashRoute.ts           ─ hash-based client-side router (navigate, useHashRoute)
+    useMediaQuery.ts          ─ window.matchMedia hook with change listener
+    usePianoRoll.ts           ─ Legacy rAF loop + particle system
   themes/
-    presets.ts            ─ default / neon / fire / water / crystal
+    presets.ts                ─ default / neon / fire / water / crystal
   types/
-    theme.ts              ─ serializable Theme JSON interface
+    theme.ts                  ─ serializable Theme JSON interface
   utils/
-    musicTheory.ts        ─ midi→note name, isBlackKey, 88-key layout
-    noteColors.ts         ─ piano/guitar gradients + velocity→opacity
-    mockMidi.ts           ─ deterministic demo MIDI
-    pianoModelMap.ts      ─ 3D: procedural 88-key generator (BoxGeometry)
-  App.tsx                 ─ includes VizModeToggle (Legacy 2D ↔ 3D Beta)
+    curatedMidis.ts           ─ static metadata for the curated MIDI collection
+    musicTheory.ts            ─ midi→note name, isBlackKey, 88-key layout
+    noteColors.ts             ─ piano/guitar gradients + velocity→opacity
+    mockMidi.ts               ─ deterministic demo MIDI
+    pianoModelMap.ts          ─ 3D: procedural 88-key generator (BoxGeometry)
+  App.tsx                     ─ root router + LandingPage (VizModeToggle, all MIDI source handlers)
   main.tsx
 ```
 
