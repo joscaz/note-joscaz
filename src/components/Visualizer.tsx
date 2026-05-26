@@ -31,6 +31,10 @@ export function Visualizer({
 }: VisualizerProps) {
   const player = useAudioPlayer();
   const [scrollSpeed, setScrollSpeed] = useState(220);
+  // scheduleBpm is the Transport BPM captured when loadMidi was called. It
+  // must be read after the midi prop arrives (loadMidi runs before the parent
+  // sets the new midi state), so reading it at render time is correct.
+  const scheduleBpm = audioEngine.scheduleBpm;
   const isMobile = useMediaQuery('(max-width: 639px)');
 
   // Flatten notes once per midi/instrument change.
@@ -108,6 +112,7 @@ export function Visualizer({
               instrument={instrument}
               scrollSpeed={scrollSpeed}
               bpm={player.bpm}
+              scheduleBpm={scheduleBpm}
               range={activeRange}
             />
           </div>

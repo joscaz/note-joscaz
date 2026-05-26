@@ -9,21 +9,24 @@ interface PianoRollProps {
   instrument: InstrumentType;
   scrollSpeed: number;
   bpm: number;
+  scheduleBpm: number;
   range?: { low: number; high: number };
 }
 
-export function PianoRoll({ notesRef, activeNotesRef, instrument, scrollSpeed, bpm, range }: PianoRollProps) {
+export function PianoRoll({ notesRef, activeNotesRef, instrument, scrollSpeed, bpm, scheduleBpm, range }: PianoRollProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const instrumentRef = useRef<InstrumentType>(instrument);
   const scrollSpeedRef = useRef<number>(scrollSpeed);
   const bpmRef = useRef<number>(bpm);
+  const scheduleBpmRef = useRef<number>(scheduleBpm);
   const rangeRef = useRef(range);
 
   useEffect(() => { instrumentRef.current = instrument; }, [instrument]);
   useEffect(() => { scrollSpeedRef.current = scrollSpeed; }, [scrollSpeed]);
   useEffect(() => { bpmRef.current = bpm; }, [bpm]);
+  useEffect(() => { scheduleBpmRef.current = scheduleBpm; }, [scheduleBpm]);
   useEffect(() => { rangeRef.current = range; }, [range]);
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export function PianoRoll({ notesRef, activeNotesRef, instrument, scrollSpeed, b
       scrollSpeedRef,
       activeNotesRef,
       bpmRef,
+      scheduleBpmRef,
       rangeRef,
     });
   }, [notesRef, activeNotesRef, range]);

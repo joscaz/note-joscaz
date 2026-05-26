@@ -161,8 +161,8 @@ function LandingPage() {
       setActiveCuratedId(null);
       setIsDownloadable(true);
       if (result.real) void fetchDailyCount();
-      audioEngine.loadMidi(result.midi, instrument);
       audioEngine.setBpm(result.bpm);
+      audioEngine.loadMidi(result.midi, instrument);
       // When the backend returns real MIDI and we have an original file,
       // default to A/B so the user hears original + synth side by side.
       // Otherwise (mock fallback path) synth-only.
@@ -211,9 +211,9 @@ function LandingPage() {
       setStage('Decoding MIDI track');
       const loadedMidi = new Midi(arrayBuffer);
 
-      audioEngine.loadMidi(loadedMidi, instrument);
       const bpm = loadedMidi.header.tempos[0]?.bpm ?? 120;
       audioEngine.setBpm(bpm);
+      audioEngine.loadMidi(loadedMidi, instrument);
 
       setMidi(loadedMidi);
       setIsReal(true);

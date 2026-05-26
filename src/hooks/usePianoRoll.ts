@@ -16,6 +16,7 @@ export interface PianoRollOptions {
   scrollSpeedRef: React.RefObject<number>; // px/s
   activeNotesRef: React.RefObject<Set<number>>;
   bpmRef: React.RefObject<number>;
+  scheduleBpmRef: React.RefObject<number>;
   rangeRef?: React.RefObject<{ low: number; high: number } | undefined>;
 }
 
@@ -28,7 +29,7 @@ export interface PianoRollOptions {
  * on the same Transport clock).
  */
 export function startPianoRoll(opts: PianoRollOptions): () => void {
-  const { canvas, container, notesRef, instrumentRef, scrollSpeedRef, activeNotesRef, bpmRef, rangeRef } = opts;
+  const { canvas, container, notesRef, instrumentRef, scrollSpeedRef, activeNotesRef, bpmRef, scheduleBpmRef, rangeRef } = opts;
   const ctx = canvas.getContext('2d');
   if (!ctx) return () => undefined;
 
@@ -76,6 +77,8 @@ export function startPianoRoll(opts: PianoRollOptions): () => void {
     const hitLineY = height * hitLineRatio;
     const bpm = bpmRef.current ?? 120;
     const secPerBeat = 60 / bpm;
+    // Converts n.time (seconds at schedule-time BPM) to Transport.seconds units so visual stays locked to audio when BPM changes.
+    const bpmScale = (scheduleBpmRef.current ?? 120) / bpm;
 
     // --- background ---
     ctx.clearRect(0, 0, width, height);
@@ -124,15 +127,16 @@ export function startPianoRoll(opts: PianoRollOptions): () => void {
 
     for (let i = 0; i < notes.length; i++) {
       const n = notes[i];
-      const noteEnd = n.time + n.duration;
-      if (noteEnd < windowStart) continue;
-      if (n.time > windowEnd) break;
+      const scaledTime = n.time * bpmScale;
+      const scaledEnd = (n.time + n.duration) * bpmScale;
+      if (scaledEnd < windowStart) continue;
+      if (scaledTime > windowEnd) break;
       if (n.midi < rangeLow || n.midi > rangeHigh) continue;
       const rect = layout[n.midi - rangeLow];
       if (!rect) continue;
 
-      const topY = hitLineY - (noteEnd - t) * scrollSpeed;
-      const bottomY = hitLineY - (n.time - t) * scrollSpeed;
+      const topY = hitLineY - (scaledEnd - t) * scrollSpeed;
+      const bottomY = hitLineY - (scaledTime - t) * scrollSpeed;
       const h = Math.max(6, bottomY - topY);
 
       const opacity = velocityToOpacity(n.velocity);

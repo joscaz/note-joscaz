@@ -45,6 +45,7 @@ class AudioEngine {
   private _loop = false;
   private _ready = false;
   private _readyPromise: Promise<void> | null = null;
+  private _scheduleBpm = 120;
 
   // Piano-only: when true, each note is triggered as pure `triggerAttack` and
   // the Salamander sample decays naturally (model-truthful, onset-only). When
@@ -144,6 +145,7 @@ class AudioEngine {
    * called again (e.g. after re-transcription or instrument change).
    */
   loadMidi(midi: Midi, instrument: InstrumentType): void {
+    this._scheduleBpm = Tone.getTransport().bpm.value;
     this.clearScheduled();
 
     const notes: NoteEvent[] = [];
@@ -270,7 +272,7 @@ class AudioEngine {
   }
 
   setBpm(bpm: number): void {
-    Tone.getTransport().bpm.rampTo(bpm, 0.05);
+    Tone.getTransport().bpm.value = bpm;
     this.emitState();
   }
 
@@ -350,6 +352,7 @@ class AudioEngine {
   get isPlaying(): boolean { return Tone.getTransport().state === 'started'; }
   get loop(): boolean { return this._loop; }
   get notes(): readonly NoteEvent[] { return this.midiNotes; }
+  get scheduleBpm(): number { return this._scheduleBpm; }
 
   private clearScheduled(): void {
     for (const id of this.scheduledIds) {
