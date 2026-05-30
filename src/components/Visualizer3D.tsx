@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { Midi } from '@tonejs/midi';
 import { Scene } from './scene/Scene';
-import { ThemeControls } from './scene/ThemeControls';
+import ThemePanel, { PresetSelect } from './ThemePanel';
 import { PlaybackControls } from './PlaybackControls';
 import { StatsGrid } from './StatsGrid';
 import { BackendStatus } from './BackendStatus';
@@ -84,7 +84,6 @@ export function Visualizer3D({
 
   return (
     <section className="w-full flex flex-col gap-6 px-4 md:px-10">
-      <ThemeControls />
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.4em] text-muted font-mono">
@@ -107,6 +106,7 @@ export function Visualizer3D({
         </div>
         <div className="flex flex-col items-end gap-2">
           <BackendStatus isRealResult={isRealTranscription} isCurated={isCurated} />
+          <PresetSelect />
           <div className="text-right font-mono text-xs text-muted space-y-0.5">
             <div>Notes: <span className="text-text">{notes.length}</span></div>
             <div>Tracks: <span className="text-text">{midi.tracks.length}</span></div>
@@ -153,6 +153,8 @@ export function Visualizer3D({
         instrument={instrument}
         isDownloadable={isDownloadable}
       />
+
+      <ThemePanel instrument={instrument} />
 
       <StatsGrid notes={notes} midi={midi} />
     </section>
