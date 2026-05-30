@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode, CSSProperties } from 'react';
 import { motion } from 'framer-motion';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useThemeStore } from '../services/themeStore';
@@ -28,19 +29,20 @@ const sectionVariants = {
 // ---------------------------------------------------------------------------
 interface SectionProps {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 function Section({ label, children }: SectionProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <details
-      open={open}
-      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
-      className="group"
-    >
-      <summary className="cursor-pointer list-none flex items-center justify-between py-2 font-mono uppercase tracking-wider text-xs text-muted hover:text-text transition-colors select-none">
+    <div className="group">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="cursor-pointer w-full flex items-center justify-between py-2 font-mono uppercase tracking-wider text-xs text-muted hover:text-text transition-colors select-none"
+      >
         {label}
         <span
           aria-hidden
@@ -49,7 +51,7 @@ function Section({ label, children }: SectionProps) {
         >
           ▾
         </span>
-      </summary>
+      </button>
       <motion.div
         initial={false}
         animate={open ? 'open' : 'closed'}
@@ -58,7 +60,7 @@ function Section({ label, children }: SectionProps) {
       >
         <div className="pt-2 pb-1 flex flex-col gap-2">{children}</div>
       </motion.div>
-    </details>
+    </div>
   );
 }
 
@@ -90,7 +92,7 @@ function RangeRow({ label, value, onChange, min, max, step, accentColor }: Range
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="flex-1 accent-[color:var(--accent)]"
-        style={{ ['--accent' as string]: accentColor } as React.CSSProperties}
+        style={{ ['--accent' as string]: accentColor } as CSSProperties}
       />
       <span className="tabular-nums w-12 text-xs font-mono text-text text-right">{displayValue}</span>
     </div>
@@ -167,7 +169,7 @@ function RangeWithNumberRow({ label, value, onChange, min, max, step, accentColo
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="flex-1 accent-[color:var(--accent)]"
-        style={{ ['--accent' as string]: accentColor } as React.CSSProperties}
+        style={{ ['--accent' as string]: accentColor } as CSSProperties}
       />
       <input
         type="number"
