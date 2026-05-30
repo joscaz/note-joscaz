@@ -73,8 +73,6 @@ export function PlaybackControls({
     return () => window.removeEventListener('keydown', handler);
   }, [player, scrollSpeed, onScrollSpeedChange]);
 
-  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
-
   return (
     <div className="glass rounded-2xl border border-white/10 p-4 md:p-5 flex flex-col gap-4">
       {/* Timeline */}
@@ -208,17 +206,6 @@ export function PlaybackControls({
         </div>
       </div>
 
-      {/* Progress shimmer under controls */}
-      <div className="relative h-0.5 w-full bg-white/5 rounded overflow-hidden">
-        <div
-          className="absolute left-0 top-0 h-full transition-all"
-          style={{
-            width: `${progress * 100}%`,
-            background: `linear-gradient(90deg, ${grad.top}, ${grad.bottom})`,
-            boxShadow: `0 0 12px ${grad.glow}`,
-          }}
-        />
-      </div>
     </div>
   );
 }
