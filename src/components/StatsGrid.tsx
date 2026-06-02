@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Midi } from '@tonejs/midi';
 import type { NoteEvent } from '../services/audioEngine';
 import { midiToNoteName } from '../utils/musicTheory';
+import { NOTE_GRADIENTS, type InstrumentType } from '../utils/noteColors';
 
 interface StatsGridProps {
   notes: readonly NoteEvent[];
   midi: Midi;
+  instrument: InstrumentType;
 }
 
-export function StatsGrid({ notes, midi }: StatsGridProps) {
+export function StatsGrid({ notes, midi, instrument }: StatsGridProps) {
   const stats = useMemo(() => {
     if (notes.length === 0) {
       return {
@@ -63,29 +65,29 @@ export function StatsGrid({ notes, midi }: StatsGridProps) {
     },
   ];
 
+  const accentColor = NOTE_GRADIENTS[instrument].top;
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
       {items.map((it) => (
-        <StatCard key={it.label} {...it} />
+        <StatCard key={it.label} {...it} accentColor={accentColor} />
       ))}
     </div>
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function StatCard({ label, value, accent, accentColor }: { label: string; value: string; accent?: boolean; accentColor: string }) {
   return (
     <div
-      className={`glass rounded-xl border border-white/10 p-4 transition-all hover:border-white/20 hover:-translate-y-0.5 ${
-        accent ? 'shadow-glowPiano' : ''
-      }`}
+      className="glass rounded-xl border border-white/10 p-4 transition-all hover:border-white/20 hover:-translate-y-0.5"
     >
       <div className="text-[10px] uppercase tracking-[0.25em] text-muted font-mono">{label}</div>
-      <AnimatedValue value={value} accent={!!accent} />
+      <AnimatedValue value={value} accent={!!accent} accentColor={accentColor} />
     </div>
   );
 }
 
-function AnimatedValue({ value, accent }: { value: string; accent: boolean }) {
+function AnimatedValue({ value, accent, accentColor }: { value: string; accent: boolean; accentColor: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const numeric = parseFloat(value);
   const animatable = isFinite(numeric) && !/[a-zA-Z→:]/.test(value);
@@ -116,7 +118,8 @@ function AnimatedValue({ value, accent }: { value: string; accent: boolean }) {
   return (
     <div
       ref={ref}
-      className={`mt-2 font-display font-extrabold text-2xl md:text-3xl ${accent ? 'text-shimmer' : 'text-text'}`}
+      className={`mt-2 font-display font-extrabold text-2xl md:text-3xl ${accent ? '' : 'text-text'}`}
+      style={accent ? { color: accentColor } : undefined}
     >
       {shown}
     </div>

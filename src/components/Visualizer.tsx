@@ -135,7 +135,7 @@ export function Visualizer({
         isDownloadable={isDownloadable}
       />
 
-      <StatsGrid notes={notes} midi={midi} />
+      <StatsGrid notes={notes} midi={midi} instrument={instrument} />
     </section>
   );
 }

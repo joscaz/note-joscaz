@@ -322,7 +322,6 @@ function LoginView({
           className="w-full py-3 rounded-full font-button font-semibold text-black text-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: 'linear-gradient(135deg, #00b4d8, #00f5a0)',
-            boxShadow: '0 0 28px rgba(0,245,160,0.3)',
           }}
         >
           {busy ? 'Signing in…' : 'Sign in'}
@@ -466,7 +465,6 @@ function SignupView({
             className="w-full py-3 rounded-full font-button font-semibold text-black text-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: 'linear-gradient(135deg, #00b4d8, #00f5a0)',
-              boxShadow: '0 0 28px rgba(0,245,160,0.3)',
             }}
           >
             {busy ? 'Creating account…' : 'Create account'}
@@ -544,7 +542,6 @@ function ResetPasswordView({ onSuccess }: { onSuccess?: () => void }) {
           className="w-full py-3 rounded-full font-button font-semibold text-black text-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: 'linear-gradient(135deg, #00b4d8, #00f5a0)',
-            boxShadow: '0 0 28px rgba(0,245,160,0.3)',
           }}
         >
           {busy ? 'Updating…' : 'Set new password'}
@@ -617,7 +614,6 @@ function ForgotView({ setView }: { setView: (v: View) => void }) {
             className="w-full py-3 rounded-full font-button font-semibold text-black text-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: 'linear-gradient(135deg, #00b4d8, #00f5a0)',
-              boxShadow: '0 0 28px rgba(0,245,160,0.3)',
             }}
           >
             {busy ? 'Sending…' : 'Send reset link'}

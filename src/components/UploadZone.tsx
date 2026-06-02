@@ -151,9 +151,6 @@ export function UploadZone({
           className={`relative block rounded-3xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-10 text-center ${
             dragOver ? 'border-white/60 bg-white/[0.04]' : 'border-white/10 hover:border-white/25'
           }`}
-          style={{
-            boxShadow: dragOver ? `0 0 60px ${grad.glow}` : 'none',
-          }}
           animate={{ scale: dragOver ? 1.01 : 1 }}
         >
           <input
@@ -238,9 +235,6 @@ export function UploadZone({
             className={`relative block rounded-3xl border-2 border-dashed transition-all cursor-pointer overflow-hidden p-10 text-center ${
               midiDragOver ? 'border-white/60 bg-white/[0.04]' : 'border-white/10 hover:border-white/25'
             }`}
-            style={{
-              boxShadow: midiDragOver ? `0 0 60px ${grad.glow}` : 'none',
-            }}
           >
             <input
               ref={midiInputRef}
@@ -312,7 +306,7 @@ export function UploadZone({
                   onClick={() => setSelectedGenre(g.id)}
                   className={`px-4 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 ${
                     isActive
-                      ? 'bg-white/10 text-text shadow-[0_0_15px_rgba(255,255,255,0.05)] border border-white/15'
+                      ? 'bg-white/10 text-text border border-white/15'
                       : 'border border-transparent text-muted hover:text-text'
                   }`}
                 >
@@ -346,18 +340,10 @@ export function UploadZone({
                   disabled={busy}
                   className={`group text-left relative p-5 rounded-2xl border transition-all duration-300 bg-white/[0.02] ${
                     isActive
-                      ? 'border-piano-green bg-piano-green/[0.04] shadow-[0_0_30px_rgba(0,180,216,0.15)]'
+                      ? 'border-piano-green bg-piano-green/[0.04]'
                       : 'border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  {/* Glowing background on hover */}
-                  <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl"
-                    style={{
-                      background: `radial-gradient(circle 80px at 50% 50%, ${grad.top}08, transparent)`,
-                    }}
-                  />
-
                   <div className="flex flex-col h-full justify-between gap-3 relative z-10">
                     <div>
                       <div className="flex items-center justify-between gap-2 flex-wrap">

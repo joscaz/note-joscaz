@@ -217,8 +217,8 @@ function PlayButton({ playing, onClick, grad }: { playing: boolean; onClick: () 
       title="Play/Pause (Space)"
       className="relative w-12 h-12 rounded-full flex items-center justify-center text-lg font-button font-bold text-black transition-transform hover:scale-105 active:scale-95"
       style={{
-        background: `linear-gradient(135deg, ${grad.top}, ${grad.bottom})`,
-        boxShadow: `0 0 22px ${grad.glow}, 0 4px 20px rgba(0,0,0,0.4)`,
+        background: grad.top,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
       }}
     >
       {playing ? '⏸' : '▶'}
@@ -259,7 +259,7 @@ function ABSwitch({ value, onChange, color }: { value: AudioSource; onChange: (s
           }`}
           style={
             value === o.id
-              ? { background: color, boxShadow: `0 0 10px ${color}` }
+              ? { background: color }
               : undefined
           }
         >

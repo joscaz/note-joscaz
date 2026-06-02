@@ -156,7 +156,7 @@ export function Visualizer3D({
 
       <ThemePanel instrument={instrument} />
 
-      <StatsGrid notes={notes} midi={midi} />
+      <StatsGrid notes={notes} midi={midi} instrument={instrument} />
     </section>
   );
 }

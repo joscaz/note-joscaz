@@ -59,7 +59,7 @@ export function BackendStatus({
     >
       <span
         className="w-1.5 h-1.5 rounded-full"
-        style={{ background: dot, boxShadow: `0 0 8px ${dot}` }}
+        style={{ background: dot }}
       />
       <span className="text-muted">{label}</span>
     </div>

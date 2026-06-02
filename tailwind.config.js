@@ -27,10 +27,6 @@ export default {
         // Arial stack is reserved for specific button contexts per design spec.
         button: ['Arial', 'Helvetica', 'sans-serif'],
       },
-      boxShadow: {
-        glowPiano: '0 0 24px rgba(0,245,160,0.45), 0 0 60px rgba(0,180,216,0.25)',
-        glowGuitar: '0 0 24px rgba(123,47,255,0.5), 0 0 60px rgba(255,45,107,0.25)',
-      },
       keyframes: {
         shimmer: {
           '0%': { backgroundPosition: '0% 50%' },
