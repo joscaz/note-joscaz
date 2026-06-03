@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { InstrumentSelector } from './InstrumentSelector';
 import { downsampleWaveform } from '../services/audioDecoder';
 import { useAuthStore } from '../services/authStore';
-import { navigate } from '../hooks/useHashRoute';
 import type { InstrumentType } from '../utils/noteColors';
 import { NOTE_GRADIENTS } from '../utils/noteColors';
 import type { CuratedMidi } from '../utils/curatedMidis';
@@ -45,7 +44,6 @@ export function UploadZone({
   midiError,
 }: UploadZoneProps) {
   const user = useAuthStore((s) => s.user);
-  const session = useAuthStore((s) => s.session);
   const [dragOver, setDragOver] = useState(false);
   const [decoding, setDecoding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,18 +92,10 @@ export function UploadZone({
   const onMidiDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setMidiDragOver(false);
-    if (!session) {
-      navigate('/login');
-      return;
-    }
     handleMidiFile(e.dataTransfer.files?.[0]);
   };
 
   const onMidiZoneClick = () => {
-    if (!session) {
-      navigate('/login');
-      return;
-    }
     midiInputRef.current?.click();
   };
 

@@ -193,10 +193,6 @@ function LandingPage() {
   }, [buffer, fetchDailyCount, file, instrument, session]);
 
   const handleUploadMidi = useCallback(async (file: File) => {
-    if (!session) {
-      navigate('/login');
-      return;
-    }
     setMidiUploadError(null);
     setBusy(true);
     try {
@@ -224,13 +220,9 @@ function LandingPage() {
     } finally {
       setBusy(false);
     }
-  }, [instrument, session]);
+  }, [instrument]);
 
   const handleSelectCurated = useCallback(async (song: CuratedMidi) => {
-    if (!session) {
-      navigate('/login');
-      return;
-    }
     setBusy(true);
     setOverlayOpen(true);
     setProgress(0);
@@ -279,7 +271,7 @@ function LandingPage() {
     } finally {
       setBusy(false);
     }
-  }, [instrument, session]);
+  }, [instrument]);
 
   return (
     <>
