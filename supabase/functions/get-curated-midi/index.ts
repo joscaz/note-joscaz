@@ -41,6 +41,18 @@ function json(body: unknown, status: number): Response {
   });
 }
 
+// Supabase edge functions sit behind Cloudflare, which sets `cf-connecting-ip`
+// to the true client IP and REJECTS (403) any client attempt to forge it — so
+// it cannot be spoofed. We deliberately do NOT fall back to X-Forwarded-For:
+// verified that its leftmost entry is client-supplied (spoofable) and its
+// rightmost entry is Supabase's internal infra IP (shared across all requests),
+// so neither position is a safe rate-limit key. If cf-connecting-ip is ever
+// absent the request isn't coming through the expected edge, so we bucket it
+// under 'unknown' (shared throttle) rather than trust a spoofable header.
+function getClientIp(req: Request): string {
+  return req.headers.get('cf-connecting-ip')?.trim() || 'unknown';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -69,7 +81,7 @@ Deno.serve(async (req) => {
   // Per-IP rate limit. FAIL-OPEN: if the check itself errors (DB hiccup), we let
   // the request through — the anti-abuse layer must never take down a free
   // feature. We only reject when we positively get back `false`.
-  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
+  const ip = getClientIp(req);
   const { data: allowed, error: rlError } = await supabase.rpc('check_rate_limit', {
     p_ip: ip,
     p_limit: RATE_LIMIT_MAX,
