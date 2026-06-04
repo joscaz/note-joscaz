@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Midi } from '@tonejs/midi';
 import { Hero } from './components/Hero';
 import { UploadZone } from './components/UploadZone';
@@ -92,6 +93,7 @@ function LandingPage() {
   const [isUserMidi, setIsUserMidi] = useState(false);
   const [userMidiName, setUserMidiName] = useState<string | null>(null);
   const [midiUploadError, setMidiUploadError] = useState<string | null>(null);
+  const [curatedError, setCuratedError] = useState<string | null>(null);
   const [curatedAttribution, setCuratedAttribution] = useState<string | null>(null);
   const [activeCuratedId, setActiveCuratedId] = useState<string | null>(null);
   const [isDownloadable, setIsDownloadable] = useState(true);
@@ -114,6 +116,13 @@ function LandingPage() {
       setMidi(demo);
     })();
   }, []);
+
+  // Auto-dismiss the curated toast so it doesn't linger.
+  useEffect(() => {
+    if (!curatedError) return;
+    const t = setTimeout(() => setCuratedError(null), 5000);
+    return () => clearTimeout(t);
+  }, [curatedError]);
 
   const scrollTo = (el: HTMLElement | null) => {
     if (!el) return;
@@ -193,10 +202,6 @@ function LandingPage() {
   }, [buffer, fetchDailyCount, file, instrument, session]);
 
   const handleUploadMidi = useCallback(async (file: File) => {
-    if (!session) {
-      navigate('/login');
-      return;
-    }
     setMidiUploadError(null);
     setBusy(true);
     try {
@@ -224,17 +229,14 @@ function LandingPage() {
     } finally {
       setBusy(false);
     }
-  }, [instrument, session]);
+  }, [instrument]);
 
   const handleSelectCurated = useCallback(async (song: CuratedMidi) => {
-    if (!session) {
-      navigate('/login');
-      return;
-    }
     setBusy(true);
     setOverlayOpen(true);
     setProgress(0);
     setStage('Loading curated MIDI');
+    setCuratedError(null);
     try {
       setFile(null);
       setBuffer(null);
@@ -245,10 +247,28 @@ function LandingPage() {
       setProgress(30);
       setStage('Fetching MIDI file');
 
-      const { data, error } = await supabase.storage.from('midi-files').download(song.filename);
-      if (error) throw error;
-      if (!data) throw new Error('No data received from storage');
-      const arrayBuffer = await data.arrayBuffer();
+      // Curated files live in a PRIVATE bucket. Ask the edge function for a
+      // short-lived signed URL instead of downloading directly — the bucket
+      // rejects anonymous reads, which is what stops bulk scraping.
+      const { data, error } = await supabase.functions.invoke<{ signedUrl: string }>(
+        'get-curated-midi',
+        { body: { filename: song.filename } },
+      );
+      if (error) {
+        // supabase-js exposes the raw Response on `context` for HTTP errors.
+        const status = (error as { context?: Response }).context?.status;
+        if (status === 429) {
+          setOverlayOpen(false);
+          setCuratedError("You're loading songs too fast — wait a moment and try again.");
+          return;
+        }
+        throw error;
+      }
+      if (!data?.signedUrl) throw new Error('No signed URL received');
+
+      const res = await fetch(data.signedUrl);
+      if (!res.ok) throw new Error(`Failed to fetch MIDI (${res.status})`);
+      const arrayBuffer = await res.arrayBuffer();
 
       setProgress(70);
       setStage('Decoding MIDI track');
@@ -275,11 +295,12 @@ function LandingPage() {
       setTimeout(() => scrollTo(visualizerRef.current), 250);
     } catch (e) {
       setOverlayOpen(false);
+      setCuratedError('Could not load that curated MIDI. Please try again.');
       console.error('Failed to load curated MIDI:', e);
     } finally {
       setBusy(false);
     }
-  }, [instrument, session]);
+  }, [instrument]);
 
   return (
     <>
@@ -337,6 +358,45 @@ function LandingPage() {
 
         <ProcessingOverlay open={overlayOpen} progress={progress} stage={stage} instrument={instrument} />
         <LimitReachedDialog open={limitReached} onClose={() => setLimitReached(false)} />
+
+        <AnimatePresence>
+          {curatedError && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.2 }}
+              className="fixed bottom-6 right-6 z-[60] max-w-[calc(100vw-3rem)] sm:max-w-sm"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="glass rounded-2xl border border-pink/20 bg-pink/5 px-5 py-4 flex items-start gap-3 shadow-xl">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5 text-pink shrink-0 mt-0.5"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <p className="text-sm text-text leading-snug">{curatedError}</p>
+                <button
+                  onClick={() => setCuratedError(null)}
+                  className="ml-auto text-muted hover:text-text transition-colors shrink-0"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </>
   );
