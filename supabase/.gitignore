@@ -1,0 +1,8 @@
+# Supabase
+.branches
+.temp
+
+# Local secrets — never commit
+.env
+.env.local
+.env.*.local
