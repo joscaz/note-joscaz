@@ -21,6 +21,7 @@ interface UploadZoneProps {
   curatedMidis: CuratedMidi[];
   onSelectCurated: (song: CuratedMidi) => void;
   activeCuratedId: string | null;
+  loadingCuratedId: string | null;
   onMidiUpload?: (file: File) => void;
   midiError?: string | null;
 }
@@ -40,6 +41,7 @@ export function UploadZone({
   curatedMidis,
   onSelectCurated,
   activeCuratedId,
+  loadingCuratedId,
   onMidiUpload,
   midiError,
 }: UploadZoneProps) {
@@ -312,16 +314,7 @@ export function UploadZone({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredMidis.map((song) => {
               const isActive = activeCuratedId === song.id;
-              
-              // Difficulty colors
-              let diffClass = '';
-              if (song.difficulty === 'Intermediate') {
-                diffClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-              } else if (song.difficulty === 'Advanced') {
-                diffClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
-              } else {
-                diffClass = 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
-              }
+              const isLoading = loadingCuratedId === song.id;
 
               return (
                 <button
@@ -332,29 +325,19 @@ export function UploadZone({
                     isActive
                       ? 'border-piano-green bg-piano-green/[0.04]'
                       : 'border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  } disabled:opacity-70 disabled:cursor-not-allowed`}
                 >
-                  <div className="flex flex-col h-full justify-between gap-3 relative z-10">
+                  <div className="flex flex-col h-full justify-between gap-1 relative z-10">
                     <div>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full ${diffClass}`}>
-                            {song.difficulty}
-                          </span>
-                          {song.attribution === 'Rousseau' && (
-                            <span className="text-[9px] font-mono tracking-wider text-piano-green bg-piano-green/10 border border-piano-green/20 px-2 py-0.5 rounded-full">
-                              Rousseau
-                            </span>
-                          )}
-                        </div>
-                        {isActive && (
+                      {isActive && (
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="flex h-2 w-2 relative">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-piano-green opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-piano-green"></span>
                           </span>
-                        )}
-                      </div>
-                      <h4 className="font-display font-bold text-base text-text mt-3 group-hover:text-piano-green transition-colors line-clamp-2">
+                        </div>
+                      )}
+                      <h4 className="font-display font-bold text-base text-text group-hover:text-piano-green transition-colors line-clamp-2">
                         {song.title}
                       </h4>
                     </div>
@@ -362,10 +345,22 @@ export function UploadZone({
                     <div className="flex items-center justify-between mt-1 pt-2 border-t border-white/5 text-xs">
                       <span className="text-muted truncate font-medium max-w-[150px]">{song.composer}</span>
                       <span className="text-muted/60 font-mono text-[10px] uppercase flex items-center gap-1 group-hover:text-text transition-colors">
-                        Load
-                        <svg className="w-3 h-3 transform translate-x-0 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
+                        {isLoading ? (
+                          <>
+                            Loading
+                            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          </>
+                        ) : (
+                          <>
+                            Load
+                            <svg className="w-3 h-3 transform translate-x-0 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </>
+                        )}
                       </span>
                     </div>
                   </div>

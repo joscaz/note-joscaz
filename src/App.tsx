@@ -96,6 +96,7 @@ function LandingPage() {
   const [curatedError, setCuratedError] = useState<string | null>(null);
   const [curatedAttribution, setCuratedAttribution] = useState<string | null>(null);
   const [activeCuratedId, setActiveCuratedId] = useState<string | null>(null);
+  const [loadingCuratedId, setLoadingCuratedId] = useState<string | null>(null);
   const [isDownloadable, setIsDownloadable] = useState(true);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -233,9 +234,7 @@ function LandingPage() {
 
   const handleSelectCurated = useCallback(async (song: CuratedMidi) => {
     setBusy(true);
-    setOverlayOpen(true);
-    setProgress(0);
-    setStage('Loading curated MIDI');
+    setLoadingCuratedId(song.id);
     setCuratedError(null);
     try {
       setFile(null);
@@ -244,8 +243,6 @@ function LandingPage() {
       audioEngine.setSource('synth');
 
       await audioEngine.loadInstruments();
-      setProgress(30);
-      setStage('Fetching MIDI file');
 
       // Curated files live in a PRIVATE bucket. Ask the edge function for a
       // short-lived signed URL instead of downloading directly — the bucket
@@ -258,7 +255,6 @@ function LandingPage() {
         // supabase-js exposes the raw Response on `context` for HTTP errors.
         const status = (error as { context?: Response }).context?.status;
         if (status === 429) {
-          setOverlayOpen(false);
           setCuratedError("You're loading songs too fast — wait a moment and try again.");
           return;
         }
@@ -270,8 +266,6 @@ function LandingPage() {
       if (!res.ok) throw new Error(`Failed to fetch MIDI (${res.status})`);
       const arrayBuffer = await res.arrayBuffer();
 
-      setProgress(70);
-      setStage('Decoding MIDI track');
       const loadedMidi = new Midi(arrayBuffer);
 
       const bpm = loadedMidi.header.tempos[0]?.bpm ?? 120;
@@ -289,16 +283,13 @@ function LandingPage() {
       setIsDownloadable(false);
 
       audioEngine.restart();
-      setProgress(100);
-      await new Promise((r) => setTimeout(r, 200));
-      setOverlayOpen(false);
       setTimeout(() => scrollTo(visualizerRef.current), 250);
     } catch (e) {
-      setOverlayOpen(false);
       setCuratedError('Could not load that curated MIDI. Please try again.');
       console.error('Failed to load curated MIDI:', e);
     } finally {
       setBusy(false);
+      setLoadingCuratedId(null);
     }
   }, [instrument]);
 
@@ -324,6 +315,7 @@ function LandingPage() {
             curatedMidis={curatedMidis}
             onSelectCurated={handleSelectCurated}
             activeCuratedId={activeCuratedId}
+            loadingCuratedId={loadingCuratedId}
             onMidiUpload={handleUploadMidi}
             midiError={midiUploadError}
           />
