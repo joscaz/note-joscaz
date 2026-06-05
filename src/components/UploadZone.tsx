@@ -329,14 +329,14 @@ export function UploadZone({
                 >
                   <div className="flex flex-col h-full justify-between gap-1 relative z-10">
                     <div>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        {isActive && (
+                      {isActive && (
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="flex h-2 w-2 relative">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-piano-green opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-piano-green"></span>
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       <h4 className="font-display font-bold text-base text-text group-hover:text-piano-green transition-colors line-clamp-2">
                         {song.title}
                       </h4>
