@@ -1,8 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { Midi } from '@tonejs/midi';
 import type { NoteEvent } from '../services/audioEngine';
 import { midiToNoteName } from '../utils/musicTheory';
 import { NOTE_GRADIENTS, type InstrumentType } from '../utils/noteColors';
+
+// Collapse animation variants (height: 0 <-> auto) — matches ThemePanel.
+const sectionVariants = {
+  open: {
+    height: 'auto',
+    opacity: 1,
+    transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] as const },
+  },
+  closed: {
+    height: 0,
+    opacity: 0,
+    transition: { duration: 0.18, ease: [0.4, 0, 1, 1] as const },
+  },
+} as const;
 
 interface StatsGridProps {
   notes: readonly NoteEvent[];
@@ -67,11 +82,38 @@ export function StatsGrid({ notes, midi, instrument }: StatsGridProps) {
 
   const accentColor = NOTE_GRADIENTS[instrument].top;
 
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-      {items.map((it) => (
-        <StatCard key={it.label} {...it} accentColor={accentColor} />
-      ))}
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center justify-between w-full py-2 cursor-pointer hover:text-text transition-colors select-none"
+      >
+        <span className="font-mono text-xs uppercase tracking-wider text-muted">Additional data</span>
+        <span
+          aria-hidden
+          className="text-base leading-none text-muted transition-transform duration-200"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        >
+          ▾
+        </span>
+      </button>
+
+      <motion.div
+        initial={false}
+        animate={open ? 'open' : 'closed'}
+        variants={sectionVariants}
+        style={{ overflow: 'hidden' }}
+      >
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 pt-1">
+          {items.map((it) => (
+            <StatCard key={it.label} {...it} accentColor={accentColor} />
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }

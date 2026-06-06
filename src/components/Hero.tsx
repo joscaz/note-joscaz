@@ -51,21 +51,6 @@ export function Hero({ onCtaClick }: HeroProps) {
             <span className="transition-transform group-hover:translate-x-1">→</span>
           </a>
         </motion.div>
-
-        <div className="mt-8 grid grid-cols-3 gap-6 md:gap-10 text-center text-xs font-mono text-muted uppercase tracking-wider">
-          <div>
-            <div className="text-text font-display text-2xl md:text-3xl">60 fps</div>
-            <div>Canvas renderer</div>
-          </div>
-          <div>
-            <div className="text-text font-display text-2xl md:text-3xl">0 ms</div>
-            <div>Audio drift</div>
-          </div>
-          <div>
-            <div className="text-text font-display text-2xl md:text-3xl">88 keys</div>
-            <div>Full range</div>
-          </div>
-        </div>
       </motion.div>
 
       <motion.div
