@@ -135,7 +135,8 @@ export function Visualizer3D({
               instrument={instrument}
               notes={notes}
               scrollSpeed={sceneScrollSpeed}
-              frameloop={isVisible ? 'always' : 'never'}
+              isPlaying={player.isPlaying}
+              isVisible={isVisible}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">

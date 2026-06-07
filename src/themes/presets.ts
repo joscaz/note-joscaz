@@ -28,10 +28,8 @@ export const PRESETS: Record<PresetName, Theme> = {
       metalness: 0.15,
     },
     particles: {
-      enabled: true,
       color: '#00f5a0',
       burstCount: 10,
-      poolSize: 1024,
       gravityY: -2.4,
       lifeMin: 0.7,
       lifeMax: 1.2,
@@ -67,10 +65,8 @@ export const PRESETS: Record<PresetName, Theme> = {
       metalness: 0.25,
     },
     particles: {
-      enabled: true,
       color: '#ff4d8a',
       burstCount: 14,
-      poolSize: 1536,
       gravityY: -1.8,
       lifeMin: 0.8,
       lifeMax: 1.4,
@@ -106,10 +102,8 @@ export const PRESETS: Record<PresetName, Theme> = {
       metalness: 0.05,
     },
     particles: {
-      enabled: true,
       color: '#ffb347',
       burstCount: 16,
-      poolSize: 2048,
       gravityY: -0.6,   // embers rise slow
       lifeMin: 0.9,
       lifeMax: 1.8,
@@ -145,10 +139,8 @@ export const PRESETS: Record<PresetName, Theme> = {
       metalness: 0.5,
     },
     particles: {
-      enabled: true,
       color: '#b8f3ff',
       burstCount: 12,
-      poolSize: 1536,
       gravityY: -3.5,
       lifeMin: 0.6,
       lifeMax: 1.1,
@@ -184,10 +176,8 @@ export const PRESETS: Record<PresetName, Theme> = {
       metalness: 0.8,
     },
     particles: {
-      enabled: true,
       color: '#ffffff',
       burstCount: 18,
-      poolSize: 2048,
       gravityY: -2.0,
       lifeMin: 0.8,
       lifeMax: 1.5,

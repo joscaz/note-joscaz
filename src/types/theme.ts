@@ -35,10 +35,8 @@ export interface Theme {
   };
 
   particles: {
-    enabled: boolean;
     color: string;
     burstCount: number;
-    poolSize: number;
     gravityY: number;       // negative = downward accel
     lifeMin: number;
     lifeMax: number;

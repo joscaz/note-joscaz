@@ -46,6 +46,14 @@ class AudioEngine {
   private _ready = false;
   private _readyPromise: Promise<void> | null = null;
   private _scheduleBpm = 120;
+  // Precomputed at loadMidi time — the longest single note duration in the
+  // current piece. Used as the bisect window in updateActiveNotes so the scan
+  // starts at (t - _maxNoteDuration) rather than index 0. O(log n + k) instead
+  // of O(n) per tick.
+  private _maxNoteDuration = 0;
+  // Transport seconds at the last scan. Used to skip redundant scans while
+  // paused (state unchanged → notes unchanged → no emit needed).
+  private _lastScanT = -1;
 
   // Piano-only: when true, each note is triggered as pure `triggerAttack` and
   // the Salamander sample decays naturally (model-truthful, onset-only). When
@@ -161,9 +169,32 @@ class AudioEngine {
     this.midiNotes = notes;
     this._duration = maxEnd + 0.5;
 
+    // Precompute the longest note duration for the bisect window in
+    // updateActiveNotes. Protects against an empty notes array (Math.max of
+    // an empty spread is -Infinity, so we default to 0).
+    this._maxNoteDuration = notes.length > 0
+      ? Math.max(...notes.map(n => n.duration))
+      : 0;
+    // Reset scan cursor so a stale value from the previous piece doesn't
+    // cause updateActiveNotes to skip the first tick of the new piece.
+    this._lastScanT = -1;
+
     Tone.getTransport().loop = this._loop;
     Tone.getTransport().loopStart = 0;
     Tone.getTransport().loopEnd = this._duration;
+
+    // Auto-pause at the end of the piece when not looping. Without this the
+    // Transport stays state==='started' past the last note, so isPlaying never
+    // flips false and the demand-mode FrameDriver keeps invalidating at fpsCap
+    // with nothing on screen changing — the GPU stays hot on a finished song.
+    // pause() (not stop()) leaves the scrubber + scene coherent at the final
+    // frame and flips isPlaying false, which shuts the FrameDriver rAF off.
+    // The _loop guard is read at call time, so a looping piece never auto-pauses.
+    // Tracked in scheduledIds so the next loadMidi()/clearScheduled() clears it.
+    const endStopId = Tone.getTransport().scheduleOnce(() => {
+      if (!this._loop) this.pause();
+    }, this._duration);
+    this.scheduledIds.push(endStopId);
 
     // Schedule synth note triggers.
     //
@@ -228,15 +259,63 @@ class AudioEngine {
   }
 
   private updateActiveNotes(): void {
-    const t = Tone.getTransport().seconds;
+    const transport = Tone.getTransport();
+    const t = transport.seconds;
+
+    // (a) Transport stopped or paused with no active notes → nothing to clear,
+    //     skip all work. If there ARE active notes, we need to clear them once
+    //     so the piano glow and particles don't stay lit after pause/stop.
+    if (transport.state !== 'started') {
+      if (this.activeMidis.size > 0) {
+        this.activeMidis.clear();
+        // Emit once so every listener (piano glow, particles) clears immediately.
+        for (const l of this.listeners) l(this.activeMidis, t);
+      }
+      // (b) Paused and position unchanged since last scan → no notes moved in or
+      //     out of the active window, so skip the bisect entirely. This handles
+      //     the steady-state paused case (no seek, no loop jump).
+      //     We check this AFTER the clear-and-emit path above so a freshly
+      //     paused transport always emits the empty set before idling.
+      this._lastScanT = t;
+      return;
+    }
+
+    // (b) Transport started but position hasn't changed (e.g. clock jitter on
+    //     the very first tick at t=0 with two rapid rAF calls). Skip redundant
+    //     scan while playing so we don't churn the Set and emit unchanged data.
+    if (t === this._lastScanT) return;
+    this._lastScanT = t;
+
+    // (c) Bisect: find the first note whose window can still overlap t.
+    //     Any note with note.time > t has not started yet → break.
+    //     Any note with note.time + note.duration < t has already ended → skip.
+    //     We start the scan at the first index where note.time >= t - maxDuration,
+    //     so notes that started long before t but have already ended are skipped
+    //     entirely, keeping the inner loop bounded by concurrent active notes (k)
+    //     rather than all past notes (n).
+    const windowStart = t - this._maxNoteDuration;
+
+    // Binary search for the lower bound: first index where note.time >= windowStart.
+    let lo = 0;
+    let hi = this.midiNotes.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.midiNotes[mid].time < windowStart) lo = mid + 1;
+      else hi = mid;
+    }
+    const startIdx = lo;
+
+    // Rebuild the active set from the bisect window.
     const active = this.activeMidis;
     active.clear();
-    for (const n of this.midiNotes) {
-      if (n.time > t) break;
+    for (let i = startIdx; i < this.midiNotes.length; i++) {
+      const n = this.midiNotes[i];
+      if (n.time > t) break;           // notes ahead of playhead — done
       if (n.time + n.duration >= t) {
         active.add(n.midi);
       }
     }
+
     for (const l of this.listeners) l(active, t);
   }
 
@@ -323,20 +402,31 @@ class AudioEngine {
       // Player is .sync()'d so transport.start triggers it.
     }
     Tone.getTransport().start();
+    // Notify subscribers so useAudioPlayer can start its rAF immediately
+    // instead of waiting for the next periodic poll.
+    this.emitState();
   }
 
   pause(): void {
     Tone.getTransport().pause();
+    // Notify subscribers so useAudioPlayer can cancel its rAF and snap the
+    // scrubber to the exact paused position without a polling round-trip.
+    this.emitState();
   }
 
   stop(): void {
     Tone.getTransport().stop();
     Tone.getTransport().seconds = 0;
+    this.emitState();
   }
 
   seek(seconds: number): void {
     const clamped = Math.max(0, Math.min(this._duration, seconds));
     Tone.getTransport().seconds = clamped;
+    // Notify subscribers so direct engine callers (e.g. App.tsx) keep React
+    // state in sync without waiting for a polling round-trip. seekBy() routes
+    // through seek(), so it inherits this.
+    this.emitState();
   }
 
   seekBy(delta: number): void {
@@ -345,6 +435,7 @@ class AudioEngine {
 
   restart(): void {
     Tone.getTransport().seconds = 0;
+    this.emitState();
   }
 
   get duration(): number { return this._duration; }
