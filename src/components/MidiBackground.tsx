@@ -123,7 +123,7 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
       resize();
       // Resizing a canvas clears it. In static reduced-motion mode there is no
       // loop to repaint the next frame, so redraw the single frame here.
-      if (prefersReduced) render();
+      if (prefersReduced) draw();
     });
     ro.observe(container);
 
@@ -196,7 +196,15 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
     let inView = true;
     let docVisible = !document.hidden;
 
-    const render = () => {
+    // Cap the ambient background at 60fps. On a 120Hz ProMotion panel this
+    // halves the loop's cost versus the uncapped native rate while keeping the
+    // motion crisp (it is a portfolio-facing landing background). `draw()` does
+    // the work; `render()` is the throttle gate so reduced-motion/resize can
+    // redraw a single frame without going through the cap.
+    const FRAME_INTERVAL = 1000 / 60;
+    let lastDraw = -Infinity;
+
+    const draw = () => {
       frame++;
 
       // Motion trail — smear persistence instead of clearing.
@@ -374,8 +382,14 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
         }
         gctx.putImageData(img, 0, 0);
       }
+    };
 
+    const render = (now = 0) => {
+      // Reschedule first so throttle-skipped frames keep the loop alive.
       if (running) rafId = requestAnimationFrame(render);
+      if (now - lastDraw < FRAME_INTERVAL) return;
+      lastDraw = now;
+      draw();
     };
 
     const start = () => {
@@ -402,9 +416,9 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
 
     if (prefersReduced) {
       // Honor reduced-motion: draw a single static frame and never animate
-      // (running stays false, so render() does not self-schedule). Zero
-      // ongoing cost for users who asked for less motion.
-      render();
+      // (running stays false, so the loop never starts). Zero ongoing cost
+      // for users who asked for less motion.
+      draw();
     } else {
       io = new IntersectionObserver(
         (entries) => {
