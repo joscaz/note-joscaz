@@ -119,7 +119,12 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
     };
 
     resize();
-    const ro = new ResizeObserver(resize);
+    const ro = new ResizeObserver(() => {
+      resize();
+      // Resizing a canvas clears it. In static reduced-motion mode there is no
+      // loop to repaint the next frame, so redraw the single frame here.
+      if (prefersReduced) render();
+    });
     ro.observe(container);
 
     const notes: Note[] = [];
@@ -184,7 +189,12 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
 
     let frame = 0;
     let rafId = 0;
-    let running = true;
+    let running = false;
+    // The background lives in the Hero. Once the user scrolls down to the
+    // player it would otherwise keep its full-screen canvas loop burning CPU
+    // off-screen for nothing, so the loop is gated on viewport + tab visibility.
+    let inView = true;
+    let docVisible = !document.hidden;
 
     const render = () => {
       frame++;
@@ -347,8 +357,10 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
       }
       ctx.shadowBlur = 0;
 
-      // Film grain — refresh every 2 frames.
-      if (frame % 2 === 0) {
+      // Film grain — refresh every 3 frames (~20/s). The per-pixel random
+      // fill is the single most expensive op in this loop; at 20/s the noise
+      // reads identically to 30/s while costing ~33% less CPU on the landing.
+      if (frame % 3 === 0) {
         const gw = grain.width;
         const gh = grain.height;
         const img = gctx.createImageData(gw, gh);
@@ -366,26 +378,49 @@ export function MidiBackground({ children, className = '' }: MidiBackgroundProps
       if (running) rafId = requestAnimationFrame(render);
     };
 
-    if (prefersReduced) {
-      render();
-    } else {
+    const start = () => {
+      if (running) return;
+      running = true;
       rafId = requestAnimationFrame(render);
-    }
-
-    const onVisibility = () => {
-      if (document.hidden) {
-        running = false;
-        cancelAnimationFrame(rafId);
-      } else if (!prefersReduced) {
-        running = true;
-        rafId = requestAnimationFrame(render);
-      }
     };
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
+    const stop = () => {
+      if (!running) return;
       running = false;
       cancelAnimationFrame(rafId);
+    };
+    // Single gate: animate only while on screen AND the tab is foregrounded.
+    const sync = () => {
+      if (inView && docVisible) start();
+      else stop();
+    };
+
+    let io: IntersectionObserver | null = null;
+    const onVisibility = () => {
+      docVisible = !document.hidden;
+      sync();
+    };
+
+    if (prefersReduced) {
+      // Honor reduced-motion: draw a single static frame and never animate
+      // (running stays false, so render() does not self-schedule). Zero
+      // ongoing cost for users who asked for less motion.
+      render();
+    } else {
+      io = new IntersectionObserver(
+        (entries) => {
+          inView = entries[0]?.isIntersecting ?? true;
+          sync();
+        },
+        { threshold: 0 },
+      );
+      io.observe(container);
+      document.addEventListener('visibilitychange', onVisibility);
+      sync();
+    }
+
+    return () => {
+      stop();
+      io?.disconnect();
       ro.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
     };
