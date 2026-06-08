@@ -70,8 +70,15 @@ export function useAudioPlayer(): UseAudioPlayerState & {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
-      // Snap scrubber to exact paused/stopped position (bypass throttle).
+      // Snap the scrubber to the exact paused/stopped position (bypass throttle)
+      // and request ONE scene repaint. This is the single source of repaint on a
+      // pause/stop/seek/seekBy/restart/end-of-song: every engine transport method
+      // emits state synchronously → handleStateChange → this (paused) branch, so
+      // any control (current or future) that stops the transport repaints here.
+      // Under frameloop='demand' the FrameDriver is torn down while not playing,
+      // so without this invalidate the canvas would freeze on the last frame.
       setCurrentTime(Tone.getTransport().seconds);
+      useGraphicsStore.getState().bumpRepaint();
     };
 
     // Mirror transport state immediately on mount, then whenever it changes.
@@ -128,46 +135,20 @@ export function useAudioPlayer(): UseAudioPlayerState & {
     audioEngine.setVolume(volume);
   }, [volume]);
 
+  // All transport controls below are bare engine calls. Each engine method emits
+  // state synchronously → handleStateChange → stopRaf, and stopRaf owns the
+  // scrubber snap + scene repaint (see above). play() needs nothing extra: it
+  // starts the transport, which restarts the FrameDriver's continuous render.
   const play = useCallback(async () => { await audioEngine.play(); }, []);
-  const pause = useCallback(() => {
-    audioEngine.pause();
-    // Snap scrubber immediately on pause (bypass 50ms throttle) and request
-    // one scene repaint so FallingBars redraws at the paused position.
-    setCurrentTime(audioEngine.currentTime);
-    useGraphicsStore.getState().bumpRepaint();
-  }, []);
-  // Route through the hook's own pause()/play() (not the engine directly) so
-  // toggle inherits pause()'s snap + bumpRepaint(). toggle is the primary pause
-  // action (main play button + Space), so under frameloop='demand' it must land
-  // the scene on the exact paused position like the pause button does.
+  const pause = useCallback(() => { audioEngine.pause(); }, []);
   const toggle = useCallback(async () => {
-    if (audioEngine.isPlaying) pause();
-    else await play();
-  }, [pause, play]);
-  const stop = useCallback(() => {
-    audioEngine.stop();
-    setCurrentTime(audioEngine.currentTime);
-    useGraphicsStore.getState().bumpRepaint();
+    if (audioEngine.isPlaying) audioEngine.pause();
+    else await audioEngine.play();
   }, []);
-  // Snap scrubber immediately (bypass 50ms throttle) and request one scene
-  // repaint so FallingBars/scrubber redraw at the new position while paused —
-  // under frameloop='demand' the rAF is off when paused, so without bumpRepaint
-  // the scene would stay frozen at the old position.
-  const restart = useCallback(() => {
-    audioEngine.restart();
-    setCurrentTime(audioEngine.currentTime);
-    useGraphicsStore.getState().bumpRepaint();
-  }, []);
-  const seek = useCallback((seconds: number) => {
-    audioEngine.seek(seconds);
-    setCurrentTime(audioEngine.currentTime);
-    useGraphicsStore.getState().bumpRepaint();
-  }, []);
-  const seekBy = useCallback((delta: number) => {
-    audioEngine.seekBy(delta);
-    setCurrentTime(audioEngine.currentTime);
-    useGraphicsStore.getState().bumpRepaint();
-  }, []);
+  const stop = useCallback(() => { audioEngine.stop(); }, []);
+  const restart = useCallback(() => { audioEngine.restart(); }, []);
+  const seek = useCallback((seconds: number) => { audioEngine.seek(seconds); }, []);
+  const seekBy = useCallback((delta: number) => { audioEngine.seekBy(delta); }, []);
   // These setters write to the engine; the onStateChange subscription above
   // then pulls the new value back into React state, so we don't need to set
   // local state here too (and risk drifting from the engine's truth).
