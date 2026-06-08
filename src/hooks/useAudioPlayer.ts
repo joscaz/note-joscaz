@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Tone from 'tone';
 import { audioEngine, type AudioSource } from '../services/audioEngine';
+import { useGraphicsStore } from '../services/graphicsStore';
 
 export interface UseAudioPlayerState {
   isPlaying: boolean;
@@ -41,16 +42,75 @@ export function useAudioPlayer(): UseAudioPlayerState & {
   const [pianoSustain, setPianoSustainState] = useState<boolean>(audioEngine.pianoSustain);
 
   const rafRef = useRef<number | null>(null);
+  // Refs for throttle + change-gate on cheap but frequent state pushes.
+  const lastPushRef = useRef<number>(0);      // ms timestamp of last setCurrentTime call
+  const prevIsPlayingRef = useRef<boolean>(false);
+  const prevDurationRef = useRef<number>(audioEngine.duration);
+
+  // Sync-time rAF — runs only while transport is started.
+  // Gated by audioEngine.onStateChange so it starts on play and cancels on
+  // pause/stop. On cancel one final (un-throttled) push snaps the scrubber to
+  // the exact paused position.
   useEffect(() => {
-    const tick = () => {
-      setCurrentTime(Tone.getTransport().seconds);
-      setIsPlaying(Tone.getTransport().state === 'started');
-      setDuration(audioEngine.duration);
+    const startRaf = () => {
+      if (rafRef.current !== null) return; // already running
+      const tick = (now: number) => {
+        // Throttle to ~50 ms (≈20 fps) — imperceptible on a scrubber.
+        if (now - lastPushRef.current >= 50) {
+          lastPushRef.current = now;
+          setCurrentTime(Tone.getTransport().seconds);
+        }
+        rafRef.current = requestAnimationFrame(tick);
+      };
       rafRef.current = requestAnimationFrame(tick);
     };
-    rafRef.current = requestAnimationFrame(tick);
+
+    const stopRaf = () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      // Snap the scrubber to the exact paused/stopped position (bypass throttle)
+      // and request ONE scene repaint. This is the single source of repaint on a
+      // pause/stop/seek/seekBy/restart/end-of-song: every engine transport method
+      // emits state synchronously → handleStateChange → this (paused) branch, so
+      // any control (current or future) that stops the transport repaints here.
+      // Under frameloop='demand' the FrameDriver is torn down while not playing,
+      // so without this invalidate the canvas would freeze on the last frame.
+      setCurrentTime(Tone.getTransport().seconds);
+      useGraphicsStore.getState().bumpRepaint();
+    };
+
+    // Mirror transport state immediately on mount, then whenever it changes.
+    const handleStateChange = () => {
+      const playing = Tone.getTransport().state === 'started';
+      // Change-gate: avoid redundant setState calls when state is the same.
+      if (playing !== prevIsPlayingRef.current) {
+        prevIsPlayingRef.current = playing;
+        setIsPlaying(playing);
+      }
+      const dur = audioEngine.duration;
+      if (dur !== prevDurationRef.current) {
+        prevDurationRef.current = dur;
+        setDuration(dur);
+      }
+      if (playing) startRaf();
+      else stopRaf();
+    };
+
+    // Subscribe to engine state to start/stop the rAF on play/pause/stop.
+    const unsubscribe = audioEngine.onStateChange(handleStateChange);
+
+    // Run once on mount to set initial state (transport may already be started
+    // if the component re-mounts mid-playback, e.g. during hot-reload).
+    handleStateChange();
+
     return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      unsubscribe();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, []);
 
@@ -75,6 +135,10 @@ export function useAudioPlayer(): UseAudioPlayerState & {
     audioEngine.setVolume(volume);
   }, [volume]);
 
+  // All transport controls below are bare engine calls. Each engine method emits
+  // state synchronously → handleStateChange → stopRaf, and stopRaf owns the
+  // scrubber snap + scene repaint (see above). play() needs nothing extra: it
+  // starts the transport, which restarts the FrameDriver's continuous render.
   const play = useCallback(async () => { await audioEngine.play(); }, []);
   const pause = useCallback(() => { audioEngine.pause(); }, []);
   const toggle = useCallback(async () => {

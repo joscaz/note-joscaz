@@ -3,12 +3,32 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import type { Midi } from '@tonejs/midi';
 import { Scene } from './scene/Scene';
 import ThemePanel, { PresetSelect } from './ThemePanel';
+import GraphicsPanel from './GraphicsPanel';
 import { PlaybackControls } from './PlaybackControls';
 import { StatsGrid } from './StatsGrid';
 import { BackendStatus } from './BackendStatus';
 import { audioEngine, type NoteEvent } from '../services/audioEngine';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { useGraphicsStore } from '../services/graphicsStore';
 import type { InstrumentType } from '../utils/noteColors';
+
+/**
+ * Forces the Low quality preset on narrow viewports, overriding any persisted
+ * desktop preference. Runs AFTER zustand's synchronous persist rehydration
+ * (the store already holds the localStorage value by the time this effect
+ * fires), so the override wins on mobile without fighting hydration — see
+ * design #188 §1 "HYDRATION ORDER". Re-fires on viewport-breakpoint crossing
+ * (resize/rotate); on desktop it is a no-op and the persisted choice survives.
+ */
+function useGraphicsMobileGuard() {
+  const isMobile = useMediaQuery('(max-width: 639px)');
+
+  useEffect(() => {
+    if (isMobile && useGraphicsStore.getState().quality !== 'low') {
+      useGraphicsStore.getState().setPreset('low');
+    }
+  }, [isMobile]);
+}
 
 interface Visualizer3DProps {
   midi: Midi;
@@ -31,6 +51,7 @@ export function Visualizer3D({
 }: Visualizer3DProps) {
   const player = useAudioPlayer();
   const isMobile = useMediaQuery('(max-width: 639px)');
+  useGraphicsMobileGuard();
   const [mobileWarningDismissed, setMobileWarningDismissed] = useState(false);
   // Slider value kept in legacy "px/sec" range (80..600) for PlaybackControls
   // compatibility; converted to scene-space units/sec before reaching FallingBars.
@@ -135,7 +156,8 @@ export function Visualizer3D({
               instrument={instrument}
               notes={notes}
               scrollSpeed={sceneScrollSpeed}
-              frameloop={isVisible ? 'always' : 'never'}
+              isPlaying={player.isPlaying}
+              isVisible={isVisible}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -155,6 +177,7 @@ export function Visualizer3D({
       />
 
       <ThemePanel instrument={instrument} />
+      <GraphicsPanel />
 
       <StatsGrid notes={notes} midi={midi} instrument={instrument} />
     </section>

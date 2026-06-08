@@ -13,6 +13,7 @@ import { audioEngine } from '../../services/audioEngine';
 import { type InstrumentType } from '../../utils/noteColors';
 import type { PianoHandle } from './Piano';
 import { useThemeStore } from '../../services/themeStore';
+import { useGraphicsStore } from '../../services/graphicsStore';
 
 interface Props {
   pianoHandle: PianoHandle;
@@ -31,8 +32,8 @@ export function Particles({ pianoHandle }: Props) {
   const prevActiveRef = useRef<Set<number>>(new Set());
   const clockRef = useRef({ t: 0 });
 
-  const enabled = useThemeStore((s) => s.theme.particles.enabled);
-  const poolSize = useThemeStore((s) => s.theme.particles.poolSize);
+  const enabled = useGraphicsStore((s) => s.enableParticles);
+  const poolSize = useGraphicsStore((s) => s.particlePoolSize);
   const particleColor = useThemeStore((s) => s.theme.particles.color);
   const particleSize = useThemeStore((s) => s.theme.particles.size);
   const gravityY = useThemeStore((s) => s.theme.particles.gravityY);

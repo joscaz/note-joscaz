@@ -32,7 +32,7 @@ interface SectionProps {
   children: ReactNode;
 }
 
-function Section({ label, children }: SectionProps) {
+export function Section({ label, children }: SectionProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -77,7 +77,7 @@ interface RangeRowProps {
   accentColor: string;
 }
 
-function RangeRow({ label, value, onChange, min, max, step, accentColor }: RangeRowProps) {
+export function RangeRow({ label, value, onChange, min, max, step, accentColor }: RangeRowProps) {
   // Format value for display — show up to 4 decimal places for small steps
   const displayValue = step < 0.01 ? value.toFixed(4) : step < 0.1 ? value.toFixed(3) : step < 1 ? value.toFixed(2) : String(value);
 
@@ -129,7 +129,7 @@ interface ToggleRowProps {
   onChange: (v: boolean) => void;
 }
 
-function ToggleRow({ label, value, onChange }: ToggleRowProps) {
+export function ToggleRow({ label, value, onChange }: ToggleRowProps) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs font-mono text-muted w-32 shrink-0">{label}</span>
@@ -157,7 +157,7 @@ interface RangeWithNumberRowProps {
   accentColor: string;
 }
 
-function RangeWithNumberRow({ label, value, onChange, min, max, step, accentColor }: RangeWithNumberRowProps) {
+export function RangeWithNumberRow({ label, value, onChange, min, max, step, accentColor }: RangeWithNumberRowProps) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs font-mono text-muted w-32 shrink-0">{label}</span>
@@ -258,7 +258,6 @@ function ThemePanelInner({ accent }: { accent: string }) {
   const barsMetalness = useThemeStore((s) => s.theme.bars.metalness);
 
   // Particles
-  const particlesEnabled = useThemeStore((s) => s.theme.particles.enabled);
   const particlesColor = useThemeStore((s) => s.theme.particles.color);
   const burstCount = useThemeStore((s) => s.theme.particles.burstCount);
   const gravityY = useThemeStore((s) => s.theme.particles.gravityY);
@@ -426,11 +425,6 @@ function ThemePanelInner({ accent }: { accent: string }) {
 
       {/* Particles */}
       <Section label="Particles">
-        <ToggleRow
-          label="enabled"
-          value={particlesEnabled}
-          onChange={(v) => updateTheme({ particles: { enabled: v } })}
-        />
         <ColorRow
           label="color"
           value={particlesColor}
