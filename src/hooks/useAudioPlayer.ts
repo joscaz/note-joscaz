@@ -144,7 +144,11 @@ export function useAudioPlayer(): UseAudioPlayerState & {
     if (audioEngine.isPlaying) pause();
     else await play();
   }, [pause, play]);
-  const stop = useCallback(() => { audioEngine.stop(); }, []);
+  const stop = useCallback(() => {
+    audioEngine.stop();
+    setCurrentTime(audioEngine.currentTime);
+    useGraphicsStore.getState().bumpRepaint();
+  }, []);
   // Snap scrubber immediately (bypass 50ms throttle) and request one scene
   // repaint so FallingBars/scrubber redraw at the new position while paused —
   // under frameloop='demand' the rAF is off when paused, so without bumpRepaint
