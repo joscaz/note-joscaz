@@ -136,10 +136,14 @@ export function useAudioPlayer(): UseAudioPlayerState & {
     setCurrentTime(audioEngine.currentTime);
     useGraphicsStore.getState().bumpRepaint();
   }, []);
+  // Route through the hook's own pause()/play() (not the engine directly) so
+  // toggle inherits pause()'s snap + bumpRepaint(). toggle is the primary pause
+  // action (main play button + Space), so under frameloop='demand' it must land
+  // the scene on the exact paused position like the pause button does.
   const toggle = useCallback(async () => {
-    if (audioEngine.isPlaying) audioEngine.pause();
-    else await audioEngine.play();
-  }, []);
+    if (audioEngine.isPlaying) pause();
+    else await play();
+  }, [pause, play]);
   const stop = useCallback(() => { audioEngine.stop(); }, []);
   // Snap scrubber immediately (bypass 50ms throttle) and request one scene
   // repaint so FallingBars/scrubber redraw at the new position while paused —

@@ -158,23 +158,26 @@ class AudioEngine {
 
     const notes: NoteEvent[] = [];
     let maxEnd = 0;
+    let maxDuration = 0;
     for (const track of midi.tracks) {
       for (const n of track.notes) {
         notes.push({ midi: n.midi, time: n.time, duration: n.duration, velocity: n.velocity });
         const end = n.time + n.duration;
         if (end > maxEnd) maxEnd = end;
+        if (n.duration > maxDuration) maxDuration = n.duration;
       }
     }
     notes.sort((a, b) => a.time - b.time);
     this.midiNotes = notes;
     this._duration = maxEnd + 0.5;
 
-    // Precompute the longest note duration for the bisect window in
-    // updateActiveNotes. Protects against an empty notes array (Math.max of
-    // an empty spread is -Infinity, so we default to 0).
-    this._maxNoteDuration = notes.length > 0
-      ? Math.max(...notes.map(n => n.duration))
-      : 0;
+    // Longest note duration = the bisect window in updateActiveNotes, tracked as
+    // a running max in the build loop above. NOT Math.max(...notes.map(...)):
+    // spreading a large array as function arguments blows V8's argument-count
+    // limit and throws "Maximum call stack size exceeded" on dense orchestral
+    // MIDIs (tens of thousands of notes). A running max has no such ceiling and
+    // skips the extra pass + intermediate array. Empty piece → 0.
+    this._maxNoteDuration = maxDuration;
     // Reset scan cursor so a stale value from the previous piece doesn't
     // cause updateActiveNotes to skip the first tick of the new piece.
     this._lastScanT = -1;
