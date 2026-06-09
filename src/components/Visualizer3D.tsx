@@ -131,7 +131,10 @@ export function Visualizer3D({
           <div className="text-right font-mono text-xs text-muted space-y-0.5">
             <div>Notes: <span className="text-text">{notes.length}</span></div>
             <div>Tracks: <span className="text-text">{midi.tracks.length}</span></div>
-            <div>BPM: <span className="text-text">{Math.round(player.bpm)}</span></div>
+            {/* TODO - BPM commented for the moment: There's a sync error between the MIDI notes and audio */}
+            {/* Im thinking of removing the BPM augmentation as it introduces issues im not willing to solve tbh */}
+            {/* and i dont see em as priority */}
+            {/* <div>BPM: <span className="text-text">{Math.round(player.bpm)}</span></div> */}
           </div>
         </div>
       </div>
