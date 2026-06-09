@@ -11,7 +11,7 @@ Three ways to get MIDI into the visualizer:
 Two visualizer modes, switchable from the pill toggle above the stage:
 
 - **Legacy 2D** — hand-written 60fps Canvas 2D falling-note piano roll.
-- **3D (Beta)** — Three.js scene with a Rousseau-style locked camera, instanced falling bars, GPU spark particles, bloom + vignette post-FX, and a live **Leva** tuning panel driven by 5 built-in themes (`default`, `neon`, `fire`, `water`, `crystal`).
+- **3D (Beta)** — Three.js scene with a Rousseau-style locked camera, instanced falling bars, GPU spark particles, bloom + vignette post-FX, and two custom side panels: a **Theme** panel driven by 5 built-in themes (`default`, `neon`, `fire`, `water`, `crystal`) and a **Graphics** panel for live quality/performance tuning.
 
 Works on both desktop and mobile viewports.
 
@@ -39,8 +39,8 @@ npm run build && npm run preview
 - **@tonejs/midi** — MIDI parsing, serialization, MIDI file export
 - **Canvas 2D** — Legacy visualizer: hand-written 60fps piano roll + 88-key renderer
 - **Three.js + @react-three/fiber + @react-three/drei + @react-three/postprocessing** — 3D Beta visualizer (orthographic cinematic scene, InstancedMesh bars, GPU particles, Bloom + ChromaticAberration + Vignette)
-- **Leva** — live tuning panel for 3D theme parameters
-- **Zustand** — theme store (serializable `Theme` JSON — same object is intended to drive a future headless mp4 export path)
+- **Zustand** — two serializable stores: `themeStore` (the `Theme` JSON — same object is intended to drive a future headless mp4 export path) and `graphicsStore` (quality/performance settings, persisted to `localStorage`)
+- **Custom React + Framer Motion panels** — `ThemePanel` (live-tune the 3D theme) and `GraphicsPanel` (quality presets), both hand-built (no Leva dependency)
 - **Tailwind CSS** + **Framer Motion** — design system and UI chrome
 
 ## Architecture
@@ -80,7 +80,9 @@ Shareable URL overrides (win over the stored value on load):
 
 ### 3D theme system
 
-The 3D scene is fully described by a single serializable `Theme` JSON object (`src/types/theme.ts`) — camera, piano, bars, particles, post-FX. Five presets ship built-in (`src/themes/presets.ts`); the Leva panel at the top-right lets you live-tune every field and switch between them. Because the theme is serializable, the same code path is intended to run headless in Node for a future mp4 export.
+The 3D scene is fully described by a single serializable `Theme` JSON object (`src/types/theme.ts`) — camera, piano, bars, particles, post-FX. Five presets ship built-in (`src/themes/presets.ts`); the custom `ThemePanel` (`src/components/ThemePanel.tsx`) lets you live-tune every field and switch between them. Because the theme is serializable, the same code path is intended to run headless in Node for a future mp4 export.
+
+Separately, a `GraphicsPanel` (`src/components/GraphicsPanel.tsx`) controls **how hard the GPU/CPU works** — independent of how the scene looks. It is backed by `graphicsStore` (`src/services/graphicsStore.ts`) and a `GraphicsSettings` shape (`src/types/graphics.ts`): a `quality` preset (`low` | `medium` | `high`, default `medium`), `fpsCap`, post-FX and particle toggles, particle pool size, and render `dpr`. Settings persist to `localStorage`. Presets live in `src/themes/graphicsPresets.ts`.
 
 ### Re-strike seam (guitar)
 
@@ -162,7 +164,9 @@ src/
     PianoRoll.tsx             ─ Legacy: falling-notes canvas
     PianoKeyboard.tsx         ─ Legacy: 88-key canvas
     Visualizer.tsx            ─ Legacy 2D: composes roll + keyboard + controls
-    Visualizer3D.tsx          ─ 3D Beta: mounts r3f Scene + ThemeControls + shared playback controls
+    Visualizer3D.tsx          ─ 3D Beta: mounts r3f Scene + ThemePanel + GraphicsPanel + shared playback controls
+    ThemePanel.tsx            ─ 3D: custom theme-tuning panel (presets + per-field live edit) bound to themeStore
+    GraphicsPanel.tsx         ─ 3D: quality/performance panel (quality preset, fps cap, post-FX/particle toggles) bound to graphicsStore
     AuthBadge.tsx             ─ top-right sign-in/out badge
     AuthModal.tsx             ─ sign-in / sign-up modal (Supabase Auth)
     AuthPage.tsx              ─ full-page auth route (/login, /signup)
@@ -176,7 +180,6 @@ src/
       FallingBars.tsx         ─ InstancedMesh bars, matrix per frame from Transport.seconds
       Particles.tsx           ─ GPU-driven spark bursts (ShaderMaterial, ring-buffer pool)
       PostFX.tsx              ─ Bloom (mipmapBlur) + ChromaticAberration + Vignette
-      ThemeControls.tsx       ─ Leva panel bound to themeStore (scoped store per preset)
     training/
       PianoTraining.tsx       ─ piano training content
       GuitarTraining.tsx      ─ guitar training content
@@ -193,6 +196,7 @@ src/
     authStore.ts              ─ Zustand store wrapping Supabase Auth (session, user, dailyCount)
     supabaseClient.ts         ─ Supabase client singleton (auth + storage)
     themeStore.ts             ─ Zustand: { theme, presetName, setPreset, updateTheme } (3D)
+    graphicsStore.ts          ─ Zustand: quality/performance settings, persisted to localStorage (3D)
   hooks/
     useAudioPlayer.ts         ─ React wrapper over audioEngine
     useHashRoute.ts           ─ hash-based client-side router (navigate, useHashRoute)
@@ -200,8 +204,10 @@ src/
     usePianoRoll.ts           ─ Legacy rAF loop + particle system
   themes/
     presets.ts                ─ default / neon / fire / water / crystal
+    graphicsPresets.ts        ─ low / medium / high quality presets (default: medium)
   types/
     theme.ts                  ─ serializable Theme JSON interface
+    graphics.ts               ─ GraphicsSettings interface (quality, fpsCap, dpr, toggles)
   utils/
     curatedMidis.ts           ─ static metadata for the curated MIDI collection
     musicTheory.ts            ─ midi→note name, isBlackKey, 88-key layout
