@@ -294,20 +294,6 @@ export function PlayerPage() {
         <AuthBadge />
       </header>
       <main className="relative min-h-screen">
-        <UploadZone
-          instrument={instrument}
-          onInstrumentChange={handleInstrumentChange}
-          onFileReady={handleFileReady}
-          decode={decodeAudioFile}
-          onTranscribe={handleTranscribe}
-          onTranscribeGate={() => navigate('/login')}
-          audioBuffer={buffer}
-          fileName={file?.name ?? null}
-          busy={busy}
-          onMidiUpload={handleUploadMidi}
-          midiError={midiUploadError}
-        />
-
         <div ref={visualizerRef} className="py-10 md:py-16">
           <div className="px-4 md:px-10 mb-4 flex justify-end">
             <VizModeToggle value={vizMode} onChange={setVizMode} />
@@ -332,6 +318,20 @@ export function PlayerPage() {
             </div>
           )}
         </div>
+
+        <UploadZone
+          instrument={instrument}
+          onInstrumentChange={handleInstrumentChange}
+          onFileReady={handleFileReady}
+          decode={decodeAudioFile}
+          onTranscribe={handleTranscribe}
+          onTranscribeGate={() => navigate('/login')}
+          audioBuffer={buffer}
+          fileName={file?.name ?? null}
+          busy={busy}
+          onMidiUpload={handleUploadMidi}
+          midiError={midiUploadError}
+        />
 
         <CuratedLibrary
           curatedMidis={curatedMidis}
