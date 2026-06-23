@@ -41,7 +41,7 @@ export function Hero({ onCtaClick }: HeroProps) {
             onClick={onCtaClick}
             className="relative px-8 md:px-10 py-4 md:py-5 rounded-full font-button font-bold text-base md:text-lg text-black transition-transform hover:scale-[1.04] active:scale-[0.98] bg-[#00b4d8]"
           >
-            Upload Audio →
+            Open Player →
           </button>
           <a
             href="#/training"
