@@ -9,13 +9,15 @@ import type { InstrumentType } from '../utils/noteColors';
 import { EXPORT_PRESETS, computeExportFrameCount, type ExportQuality, type ExportQualityPreset } from '../types/exportPresets';
 
 /**
- * Image format used for each captured frame. WebP is preferred (5-10x
- * smaller than PNG, native to ffmpeg's image2 demuxer); browsers without
- * WebP-in-toBlob support fall back to JPEG at capture time (see
- * captureFrameBlob below) — runtime-detected, cannot be verified at
- * type-check time.
+ * Image format used for each captured frame. The backend's `_extract_frames`
+ * step self-generates frame filenames as `frame_%06d.webp` and assumes the
+ * bytes ARE WebP — it does not read the archive entry's extension. This is a
+ * hard WEBP-ONLY contract: there is no fallback format. If the browser can't
+ * encode WebP via canvas.toBlob, the export must fail loud BEFORE any
+ * rendering/capture work starts (see assertWebpExportSupported), never
+ * silently substitute JPEG bytes under a `.webp`-shaped contract.
  */
-export type ExportFrameFormat = 'image/webp' | 'image/jpeg';
+export type ExportFrameFormat = 'image/webp';
 
 export interface ExportFrame {
   index: number;
@@ -29,7 +31,7 @@ export interface ExportRenderOptions {
   quality: ExportQuality;
   /** MIDI-derived audible duration in seconds (audioEngine.duration). */
   durationSec: number;
-  /** WebP quality 0..1 (ignored for JPEG fallback, which uses the same value). */
+  /** WebP encode quality 0..1, passed straight through to canvas.toBlob. */
   imageQuality?: number;
   /** Called after each frame is captured; useful for progress UI (driven by WU4). */
   onProgress?: (capturedFrames: number, totalFrames: number) => void;
@@ -112,19 +114,32 @@ function withTimeoutAndAbort<T>(
 }
 
 /**
- * Detects WebP support for canvas.toBlob at call time. Per MDN/spec, browsers
- * without WebP encoding silently fall back to PNG (not an error) — so we
- * probe via toDataURL's well-known WebP-support idiom and use JPEG instead
- * of letting an uncompressed PNG balloon the upload. This call only happens
- * once per export run. RUNTIME-ONLY: cannot be verified by tsc or in a
- * non-browser environment.
+ * Probes WebP support via `canvas.toBlob` BEFORE any export work (audio
+ * render, frame capture) starts. Per MDN/spec, a browser without WebP
+ * encoding silently falls back to PNG from `toBlob` (not an error/rejection)
+ * — so the only reliable signal is checking the resulting Blob's `type`.
+ *
+ * The backend hardcodes `.webp` for every extracted frame and assumes WebP
+ * bytes (no fallback decoder) — this app already requires WebGL, so every
+ * supported browser also supports WebP-in-canvas, and a probe failure here
+ * means we must fail the export loud and early rather than silently upload
+ * a corrupt (non-WebP-but-named-.webp) archive.
  */
-function detectFrameFormat(canvas: HTMLCanvasElement): ExportFrameFormat {
-  try {
-    const webpDataUrl = canvas.toDataURL('image/webp');
-    return webpDataUrl.startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
-  } catch {
-    return 'image/jpeg';
+export async function assertWebpExportSupported(): Promise<void> {
+  const probeCanvas = document.createElement('canvas');
+  probeCanvas.width = 1;
+  probeCanvas.height = 1;
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    try {
+      probeCanvas.toBlob((b) => resolve(b), 'image/webp');
+    } catch {
+      resolve(null);
+    }
+  });
+
+  if (!blob || blob.type !== 'image/webp') {
+    throw new Error('Your browser does not support video export.');
   }
 }
 
@@ -251,7 +266,11 @@ export async function captureExportFrames(options: ExportRenderOptions): Promise
     const gl = store.getState().gl;
     // gl.domElement is the canvas r3f rendered into — same one we read back from.
     const canvas = gl.domElement;
-    const frameFormat = detectFrameFormat(canvas);
+    // WEBP-ONLY contract (see assertWebpExportSupported's doc comment) — the
+    // caller (exportService.runExport) MUST have already verified WebP
+    // support before this function is ever invoked, so there is no runtime
+    // branching/fallback here.
+    const frameFormat: ExportFrameFormat = 'image/webp';
 
     const frames: ExportFrame[] = [];
     const transport = Tone.getTransport();

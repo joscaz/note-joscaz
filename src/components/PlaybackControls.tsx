@@ -34,12 +34,14 @@ interface PlaybackControlsProps {
   instrument: InstrumentType;
   isDownloadable?: boolean;
   /**
-   * Provenance of the active MIDI. Drives the (not-yet-built, WU4) Export
-   * action gate via isExportable(midiSource) below — kept fail-closed
-   * (curated/demo/unknown never exportable). Does not affect MIDI download,
-   * which is still controlled by the separate isDownloadable prop.
+   * Provenance of the active MIDI. Drives the Export action gate via
+   * isExportable(midiSource) below — kept fail-closed (curated/demo/unknown
+   * never exportable). Does not affect MIDI download, which is still
+   * controlled by the separate isDownloadable prop.
    */
   midiSource?: MidiSource | null;
+  /** Opens the export dialog (WU4) — only rendered when canExport is true. */
+  onExportClick?: () => void;
 }
 
 export function PlaybackControls({
@@ -50,14 +52,11 @@ export function PlaybackControls({
   instrument,
   isDownloadable = true,
   midiSource,
+  onExportClick,
 }: PlaybackControlsProps) {
   const grad = NOTE_GRADIENTS[instrument];
   // Fail-closed export gate, derived from midiSource (see midiSource.ts).
-  // No Export button exists yet — that UI lands in WU4 — so canExport is
-  // unused for now; the `void` below is a deliberate placeholder to silence
-  // the unused-var lint until WU4 wires it to the Export action.
   const canExport = isExportable(midiSource);
-  void canExport;
 
   // Keyboard shortcuts: Space = toggle, R = restart, ArrowUp/Down = scroll speed.
   useEffect(() => {
@@ -160,10 +159,21 @@ export function PlaybackControls({
           {/* A/B source switch */}
           <ABSwitch value={player.source} onChange={player.setSource} color={grad.top} />
 
+          {canExport && onExportClick && (
+            <button
+              onClick={onExportClick}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-piano-green/30 text-piano-green hover:bg-piano-green/10 transition-colors sm:ml-auto"
+            >
+              ⬇ Export MP4
+            </button>
+          )}
+
           {isDownloadable && (
             <button
               onClick={() => downloadMidi(midi, `notejoscaz-${instrument}.mid`)}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors sm:ml-auto"
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors ${
+                canExport && onExportClick ? '' : 'sm:ml-auto'
+              }`}
             >
               ↓ MIDI
             </button>

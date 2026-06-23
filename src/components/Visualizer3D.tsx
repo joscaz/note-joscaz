@@ -11,7 +11,9 @@ import { audioEngine, type NoteEvent } from '../services/audioEngine';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useGraphicsStore } from '../services/graphicsStore';
 import type { InstrumentType } from '../utils/noteColors';
-import { MidiSource, isMidiDownloadable } from '../types/midiSource';
+import { MidiSource, isMidiDownloadable, isExportable } from '../types/midiSource';
+import { useAuthStore } from '../services/authStore';
+import { ExportDialog } from './ExportDialog';
 
 /**
  * Forces the Low quality preset on narrow viewports, overriding any persisted
@@ -50,6 +52,9 @@ export function Visualizer3D({
 }: Visualizer3DProps) {
   const isCurated = midiSource === MidiSource.Curated;
   const isDownloadable = isMidiDownloadable(midiSource);
+  const canExport = isExportable(midiSource);
+  const accessToken = useAuthStore((s) => s.session?.access_token);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const player = useAudioPlayer();
   const isMobile = useMediaQuery('(max-width: 639px)');
   useGraphicsMobileGuard();
@@ -179,12 +184,24 @@ export function Visualizer3D({
         instrument={instrument}
         isDownloadable={isDownloadable}
         midiSource={midiSource}
+        onExportClick={canExport ? () => setExportDialogOpen(true) : undefined}
       />
 
       <ThemePanel instrument={instrument} />
       <GraphicsPanel />
 
       <StatsGrid notes={notes} midi={midi} instrument={instrument} />
+
+      <ExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        notes={notes}
+        instrument={instrument}
+        scrollSpeed={sceneScrollSpeed}
+        durationSec={audioEngine.duration}
+        pianoSustain={player.pianoSustain}
+        accessToken={accessToken}
+      />
     </section>
   );
 }

@@ -18,9 +18,9 @@ import type { InstrumentType } from '../utils/noteColors';
  * notes always produces byte-identical audio and stays in lockstep with the
  * deterministic frame capture in exportRenderer.ts at mux time.
  *
- * Empirically validated by Spike 0 (browser run, rms=0.045645 > epsilon
- * 0.001 — see scratch-spike0-tone-offline.ts, now disposable). This module
- * mirrors that validated pattern: a brand-new Sampler is constructed bound
+ * Empirically validated by Spike 0 (one-off browser run, rms=0.045645 >
+ * epsilon 0.001; the disposable spike harness has since been removed). This
+ * module mirrors that validated pattern: a brand-new Sampler is constructed bound
  * to the OFFLINE context via the `{ context }` option (Tone.Sampler accepts
  * this), `Tone.loaded()` is awaited (sample fetch+decode is global/static,
  * NOT context-bound, so awaiting it works correctly even from inside the

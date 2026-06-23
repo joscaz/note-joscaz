@@ -20,6 +20,8 @@ import { curatedMidis } from '../utils/curatedMidis';
 import type { CuratedMidi } from '../utils/curatedMidis';
 import { supabase } from '../services/supabaseClient';
 import { MidiSource } from '../types/midiSource';
+import { mintMidiUploadToken } from '../services/transcriptionService';
+import { useExportTokenStore } from '../services/exportToken';
 
 type VizMode = 'legacy' | 'beta';
 const VIZ_MODE_KEY = 'noteforge:vizMode';
@@ -102,6 +104,9 @@ export function PlayerPage() {
       audioEngine.setSource('synth');
       setMidi(demo);
       setMidiSource(MidiSource.Demo);
+      // Demo is never exportable (fail-closed) — clear any token left over
+      // from a previous exportable piece so it can't leak across loads.
+      useExportTokenStore.getState().clearToken();
     })();
     return () => { cancelled = true; };
   }, []);
@@ -157,7 +162,17 @@ export function PlayerPage() {
       });
       setMidi(result.midi);
       setIsReal(result.real);
-      setMidiSource(MidiSource.Transcribed);
+      if (result.real) {
+        setMidiSource(MidiSource.Transcribed);
+      } else {
+        // Backend transcription failed and we silently fell back to mock
+        // MIDI (transcribe() never throws on backend failure — see
+        // transcriptionService.ts). Mock MIDI is never exportable, and any
+        // token stashed from a PREVIOUS successful transcription must not
+        // survive into this unrelated mock result (fail-closed).
+        setMidiSource(MidiSource.Demo);
+        useExportTokenStore.getState().clearToken();
+      }
       setUserMidiName(null);
       setMidiUploadError(null);
       setCuratedAttribution(null);
@@ -199,19 +214,33 @@ export function PlayerPage() {
       audioEngine.restart();
       setMidi(loadedMidi);
       setIsReal(true);
+      // Clear any stale token (e.g. from a previously transcribed piece)
+      // SYNCHRONOUSLY, before flipping midiSource to UserMidi. This closes
+      // the race window where the new midiSource would be visible/exportable
+      // while an old, unrelated token is still attached — export simply
+      // fails closed (no token) until the mint below resolves.
+      useExportTokenStore.getState().clearToken();
       setMidiSource(MidiSource.UserMidi);
       setUserMidiName(file.name);
       setFile(null);
       setBuffer(null);
       setCuratedAttribution(null);
       setActiveCuratedId(null);
+      // Provenance Layer 2 (design §3, issuance path b): there's no backend
+      // touchpoint for a purely client-side MIDI parse, so mint a dedicated
+      // export token now. Fire-and-forget — never blocks/aborts the upload;
+      // Export simply stays disabled until this resolves. mintMidiUploadToken
+      // never throws and never leaves a stale token live on failure (the
+      // clearToken() above already guarantees that — it only ever sets a
+      // NEW token on success, never restores an old one).
+      void mintMidiUploadToken(session?.access_token);
       setTimeout(() => scrollTo(visualizerRef.current), 250);
     } catch {
       setMidiUploadError('Could not read that MIDI file. Make sure it is a valid .mid or .midi.');
     } finally {
       setBusy(false);
     }
-  }, [instrument]);
+  }, [instrument, session]);
 
   const handleSelectCurated = useCallback(async (song: CuratedMidi) => {
     setBusy(true);
@@ -222,6 +251,9 @@ export function PlayerPage() {
       setBuffer(null);
       audioEngine.stop();
       audioEngine.setSource('synth');
+      // Curated MIDI never gets a token (design §3, issuance path c) — clear
+      // any stale token from a previous exportable piece so it can't leak.
+      useExportTokenStore.getState().clearToken();
 
       await audioEngine.loadInstruments();
 
