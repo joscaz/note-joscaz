@@ -81,8 +81,9 @@ export const DEFAULT_EXPORT_QUALITY: ExportQuality = 'medium';
 
 /**
  * Frame count for a full export, derived from the MIDI's audible duration
- * (audioEngine.duration, i.e. maxNoteEnd + 0.5s tail) and the chosen preset's
- * fps. ceil() so the last partial frame interval is still captured.
+ * (audioEngine.duration, i.e. maxNoteEnd + an instrument-aware release tail —
+ * see tailPadSecFor in audioEngine.ts) and the chosen preset's fps. ceil() so
+ * the last partial frame interval is still captured.
  */
 export function computeExportFrameCount(durationSec: number, preset: ExportQualityPreset): number {
   return Math.ceil(durationSec * preset.fps);
