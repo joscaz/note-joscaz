@@ -19,6 +19,7 @@ import type { InstrumentType } from '../utils/noteColors';
 import { curatedMidis } from '../utils/curatedMidis';
 import type { CuratedMidi } from '../utils/curatedMidis';
 import { supabase } from '../services/supabaseClient';
+import { MidiSource } from '../types/midiSource';
 
 type VizMode = 'legacy' | 'beta';
 const VIZ_MODE_KEY = 'noteforge:vizMode';
@@ -75,15 +76,13 @@ export function PlayerPage() {
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [midi, setMidi] = useState<Midi | null>(null);
   const [isReal, setIsReal] = useState(false);
-  const [isCurated, setIsCurated] = useState(false);
-  const [isUserMidi, setIsUserMidi] = useState(false);
+  const [midiSource, setMidiSource] = useState<MidiSource>(MidiSource.Demo);
   const [userMidiName, setUserMidiName] = useState<string | null>(null);
   const [midiUploadError, setMidiUploadError] = useState<string | null>(null);
   const [curatedError, setCuratedError] = useState<string | null>(null);
   const [curatedAttribution, setCuratedAttribution] = useState<string | null>(null);
   const [activeCuratedId, setActiveCuratedId] = useState<string | null>(null);
   const [loadingCuratedId, setLoadingCuratedId] = useState<string | null>(null);
-  const [isDownloadable, setIsDownloadable] = useState(true);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('Decoding audio');
@@ -102,6 +101,7 @@ export function PlayerPage() {
       audioEngine.loadMidi(demo, 'piano');
       audioEngine.setSource('synth');
       setMidi(demo);
+      setMidiSource(MidiSource.Demo);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -121,13 +121,10 @@ export function PlayerPage() {
   const handleFileReady = useCallback((f: File, buf: AudioBuffer) => {
     setFile(f);
     setBuffer(buf);
-    setIsCurated(false);
-    setIsUserMidi(false);
     setUserMidiName(null);
     setMidiUploadError(null);
     setCuratedAttribution(null);
     setActiveCuratedId(null);
-    setIsDownloadable(true);
     void audioEngine.loadAudio(buf);
   }, []);
 
@@ -160,13 +157,11 @@ export function PlayerPage() {
       });
       setMidi(result.midi);
       setIsReal(result.real);
-      setIsCurated(false);
-      setIsUserMidi(false);
+      setMidiSource(MidiSource.Transcribed);
       setUserMidiName(null);
       setMidiUploadError(null);
       setCuratedAttribution(null);
       setActiveCuratedId(null);
-      setIsDownloadable(true);
       if (result.real) void fetchDailyCount();
       audioEngine.setBpm(result.bpm);
       audioEngine.loadMidi(result.midi, instrument);
@@ -204,10 +199,8 @@ export function PlayerPage() {
       audioEngine.restart();
       setMidi(loadedMidi);
       setIsReal(true);
-      setIsCurated(false);
-      setIsUserMidi(true);
+      setMidiSource(MidiSource.UserMidi);
       setUserMidiName(file.name);
-      setIsDownloadable(true);
       setFile(null);
       setBuffer(null);
       setCuratedAttribution(null);
@@ -262,13 +255,11 @@ export function PlayerPage() {
 
       setMidi(loadedMidi);
       setIsReal(true);
-      setIsCurated(true);
-      setIsUserMidi(false);
+      setMidiSource(MidiSource.Curated);
       setUserMidiName(null);
       setMidiUploadError(null);
       setCuratedAttribution(song.attribution);
       setActiveCuratedId(song.id);
-      setIsDownloadable(false);
 
       audioEngine.restart();
       setTimeout(() => scrollTo(visualizerRef.current), 250);
@@ -304,13 +295,12 @@ export function PlayerPage() {
               instrument={instrument}
               fileName={
                 file?.name
-                  ?? (isUserMidi ? userMidiName : null)
+                  ?? (midiSource === MidiSource.UserMidi ? userMidiName : null)
                   ?? (curatedMidis.find(s => s.id === activeCuratedId)?.title ?? 'Demo · Mock MIDI')
               }
               isRealTranscription={isReal}
-              isCurated={isCurated}
+              midiSource={midiSource}
               curatedAttribution={curatedAttribution}
-              isDownloadable={isDownloadable}
             />
           ) : (
             <div className="text-center text-muted font-mono text-sm py-20">

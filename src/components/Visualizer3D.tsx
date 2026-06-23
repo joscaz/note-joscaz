@@ -11,6 +11,7 @@ import { audioEngine, type NoteEvent } from '../services/audioEngine';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useGraphicsStore } from '../services/graphicsStore';
 import type { InstrumentType } from '../utils/noteColors';
+import { MidiSource, isMidiDownloadable } from '../types/midiSource';
 
 /**
  * Forces the Low quality preset on narrow viewports, overriding any persisted
@@ -35,9 +36,8 @@ interface Visualizer3DProps {
   instrument: InstrumentType;
   fileName: string | null;
   isRealTranscription: boolean;
-  isCurated?: boolean;
+  midiSource?: MidiSource | null;
   curatedAttribution?: string | null;
-  isDownloadable?: boolean;
 }
 
 export function Visualizer3D({
@@ -45,10 +45,11 @@ export function Visualizer3D({
   instrument,
   fileName,
   isRealTranscription,
-  isCurated,
+  midiSource,
   curatedAttribution,
-  isDownloadable = true,
 }: Visualizer3DProps) {
+  const isCurated = midiSource === MidiSource.Curated;
+  const isDownloadable = isMidiDownloadable(midiSource);
   const player = useAudioPlayer();
   const isMobile = useMediaQuery('(max-width: 639px)');
   useGraphicsMobileGuard();
@@ -177,6 +178,7 @@ export function Visualizer3D({
         midi={midi}
         instrument={instrument}
         isDownloadable={isDownloadable}
+        midiSource={midiSource}
       />
 
       <ThemePanel instrument={instrument} />

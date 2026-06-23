@@ -4,6 +4,7 @@ import { downloadMidi } from '../services/midiExporter';
 import type { AudioSource } from '../services/audioEngine';
 import type { InstrumentType } from '../utils/noteColors';
 import { NOTE_GRADIENTS } from '../utils/noteColors';
+import { MidiSource, isExportable } from '../types/midiSource';
 
 interface PlayerApi {
   isPlaying: boolean;
@@ -32,6 +33,13 @@ interface PlaybackControlsProps {
   midi: Midi;
   instrument: InstrumentType;
   isDownloadable?: boolean;
+  /**
+   * Provenance of the active MIDI. Drives the (not-yet-built, WU4) Export
+   * action gate via isExportable(midiSource) below — kept fail-closed
+   * (curated/demo/unknown never exportable). Does not affect MIDI download,
+   * which is still controlled by the separate isDownloadable prop.
+   */
+  midiSource?: MidiSource | null;
 }
 
 export function PlaybackControls({
@@ -41,8 +49,15 @@ export function PlaybackControls({
   midi,
   instrument,
   isDownloadable = true,
+  midiSource,
 }: PlaybackControlsProps) {
   const grad = NOTE_GRADIENTS[instrument];
+  // Fail-closed export gate, derived from midiSource (see midiSource.ts).
+  // No Export button exists yet — that UI lands in WU4 — so canExport is
+  // unused for now; the `void` below is a deliberate placeholder to silence
+  // the unused-var lint until WU4 wires it to the Export action.
+  const canExport = isExportable(midiSource);
+  void canExport;
 
   // Keyboard shortcuts: Space = toggle, R = restart, ArrowUp/Down = scroll speed.
   useEffect(() => {
