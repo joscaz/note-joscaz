@@ -1,4 +1,5 @@
 import { Hero } from './components/Hero';
+import { HowItWorks } from './components/HowItWorks';
 import { Footer } from './components/Footer';
 import { TrainingPage } from './components/TrainingPage';
 import { AuthPage } from './components/AuthPage';
@@ -28,6 +29,7 @@ function LandingPage() {
       </header>
       <main className="relative min-h-screen">
         <Hero onCtaClick={() => navigate('/player')} />
+        <HowItWorks />
         <Footer />
       </main>
     </>
