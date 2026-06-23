@@ -94,13 +94,16 @@ export function PlayerPage() {
   // Preload a "demo" MIDI so the visualizer has something to show even before
   // the user uploads — the player route is never empty.
   useEffect(() => {
+    let cancelled = false;
     const demo = generateMockMidi('piano');
     void (async () => {
       await audioEngine.loadInstruments();
+      if (cancelled) return;
       audioEngine.loadMidi(demo, 'piano');
       audioEngine.setSource('synth');
       setMidi(demo);
     })();
+    return () => { cancelled = true; };
   }, []);
 
   // Auto-dismiss the curated toast so it doesn't linger.

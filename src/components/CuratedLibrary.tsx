@@ -57,6 +57,7 @@ export function CuratedLibrary({
             return (
               <button
                 key={g.id}
+                type="button"
                 onClick={() => setSelectedGenre(g.id)}
                 className={`px-4 py-2 rounded-full text-xs font-mono uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 ${
                   isActive
@@ -81,6 +82,7 @@ export function CuratedLibrary({
             return (
               <button
                 key={song.id}
+                type="button"
                 onClick={() => onSelectCurated(song)}
                 disabled={busy}
                 className={`group text-left relative p-5 rounded-2xl border transition-all duration-300 bg-white/[0.02] ${
