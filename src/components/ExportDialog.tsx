@@ -137,12 +137,19 @@ export function ExportDialog({
       setResultFilename(result.filename);
       setPhase('done');
     } catch (err) {
+      // A user-initiated cancel surfaces either as ExportError('aborted')
+      // (runExport's own throwIfAborted) OR as a raw DOMException named
+      // 'AbortError' — renderExportAudio and withTimeoutAndAbort reject with
+      // that directly when the signal fires mid-render. Treat both as a quiet
+      // return to the picker, not the generic "something went wrong" error.
+      const isAbort =
+        (err instanceof ExportError && err.code === 'aborted') ||
+        (err instanceof DOMException && err.name === 'AbortError');
+      if (isAbort) {
+        setPhase('picking');
+        return;
+      }
       if (err instanceof ExportError) {
-        if (err.code === 'aborted') {
-          // User-initiated cancel — just go back to the picker quietly.
-          setPhase('picking');
-          return;
-        }
         setErrorMessage(ERROR_MESSAGES[err.code]);
       } else {
         console.error('[NoteJoscaz] Export failed:', err);

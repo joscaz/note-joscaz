@@ -272,7 +272,11 @@ function uploadExport(opts: UploadExportOptions): Promise<Blob> {
     const form = new FormData();
     form.append('audio', audioBlob, 'audio.wav');
     form.append('frames', framesArchive, 'frames.zip');
-    form.append('meta', new Blob([JSON.stringify(meta)], { type: 'application/json' }), 'meta.json');
+    // Send meta as a plain form FIELD (a string), NOT a Blob with a filename.
+    // A multipart part that carries a filename is parsed as a file/UploadFile
+    // by FastAPI, but the endpoint declares `meta: str = Form(...)` — sending
+    // it as a file makes that validation fail with 422 Unprocessable Entity.
+    form.append('meta', JSON.stringify(meta));
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_BASE}/export/mp4`);
