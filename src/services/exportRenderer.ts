@@ -46,7 +46,13 @@ export interface ExportRenderResult {
   frameCount: number;
 }
 
-const DEFAULT_IMAGE_QUALITY = 0.85;
+// WebP encode quality for captured frames. 0.72 (down from 0.85) trims each
+// frame roughly 40% — the dominant lever on the frames-archive size — with
+// negligible visible loss on the dark, bloom-heavy scene. Frames are the bulk
+// of the upload (one still per frame, no temporal compression until the server
+// muxes), so this directly raises the max exportable length before hitting the
+// upload ceiling.
+const DEFAULT_IMAGE_QUALITY = 0.72;
 
 /** Setup-phase readiness wait (GLTF load + first Scene mount) — generous
  * since the Piano model is a real network fetch, but bounded so a stuck

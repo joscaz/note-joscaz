@@ -147,6 +147,11 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
       instrument,
       durationSec,
       pianoSustain,
+      // Mono: the server re-encodes this to AAC anyway, and an uncompressed
+      // stereo 16-bit WAV is the second-biggest chunk of the upload on a long
+      // piece (~106 MB for 5 min). Mono halves that with no audible loss in a
+      // visualizer export.
+      numChannels: 1,
       signal,
     });
 
