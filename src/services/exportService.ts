@@ -3,7 +3,7 @@ import { audioEngine, type NoteEvent } from './audioEngine';
 import type { InstrumentType } from '../utils/noteColors';
 import { useGraphicsStore } from './graphicsStore';
 import { renderExportAudio } from './exportAudio';
-import { captureExportFrames, assertWebpExportSupported } from './exportRenderer';
+import { captureExportFrames, assertWebpExportSupported, type ExportFrame } from './exportRenderer';
 import { buildZipArchive, type ZipEntryInput } from './zipWriter';
 import { EXPORT_PRESETS, type ExportQuality } from '../types/exportPresets';
 import { getExportToken } from './exportToken';
@@ -174,12 +174,23 @@ export async function runExport(options: ExportOptions): Promise<ExportResult> {
     // always 'image/webp' (assertWebpExportSupported above guarantees this,
     // or the export has already failed loud before reaching this point).
     onProgress?.({ stage: 'Packaging' });
-    const zipEntries: ZipEntryInput[] = await Promise.all(
-      frameResult.frames.map(async (frame) => ({
+    // Decode frame blobs to bytes ONE AT A TIME, releasing each Blob ref as we
+    // go — NOT Promise.all, which would hold every Blob AND its decoded
+    // Uint8Array copy alive simultaneously, roughly doubling peak heap and
+    // risking an OOM tab-kill on a long high-quality export before the upload
+    // even starts. `captured` is the same array instance as frameResult.frames;
+    // we null each slot once converted so the Blob can be GC'd before the next.
+    const captured = frameResult.frames as (ExportFrame | null)[];
+    const zipEntries: ZipEntryInput[] = [];
+    for (let i = 0; i < captured.length; i++) {
+      const frame = captured[i];
+      if (!frame) continue;
+      zipEntries.push({
         name: `frame_${frame.index.toString().padStart(6, '0')}.webp`,
         data: new Uint8Array(await frame.blob.arrayBuffer()),
-      })),
-    );
+      });
+      captured[i] = null;
+    }
     const framesArchive = buildZipArchive(zipEntries);
 
     throwIfAborted(signal);

@@ -76,6 +76,7 @@ function withTimeoutAndAbort<T>(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       reject(new DOMException('Export aborted', 'AbortError'));
     };
 
@@ -191,11 +192,15 @@ function captureFrameBlob(canvas: HTMLCanvasElement, format: ExportFrameFormat, 
  * the store, not just `gl`) and pass `store.getState()` explicitly so only
  * the offscreen export root advances.
  *
- * The Scene is mounted off-DOM (detached <canvas>, never appended to
- * document.body) at the export preset's pixel resolution, with postFX +
- * particles forced ON via Scene's `exportOverride` prop (sourced from the
- * EXPORT_PRESETS table — never from useGraphicsStore, so the live thermal
- * preset can't thin out the exported video).
+ * The Scene is mounted into an off-screen, visually-hidden container that IS
+ * appended to document.body — r3f's <Canvas> sizes itself by measuring its
+ * container via ResizeObserver, and a DETACHED node always measures 0x0
+ * (regardless of inline width/height), which would yield a 0x0 WebGL viewport
+ * and silently capture empty frames. The container renders at the export
+ * preset's pixel resolution, with postFX + particles forced ON via Scene's
+ * `exportOverride` prop (sourced from the EXPORT_PRESETS table — never from
+ * useGraphicsStore, so the live thermal preset can't thin out the exported
+ * video).
  *
  * Live playback is NOT touched: Tone.getTransport().seconds is mutated on
  * this offscreen capture's own render tree only insofar as the Transport
@@ -215,12 +220,23 @@ export async function captureExportFrames(options: ExportRenderOptions): Promise
     particlePoolSize: preset.particlePoolSize,
   };
 
-  // Detached container — never appended to document.body. r3f's Canvas
-  // still needs a real DOM node + ResizeObserver-able size to create the
-  // WebGL context against.
+  // Off-screen container, appended to document.body but visually hidden.
+  // r3f's <Canvas> measures this node via ResizeObserver (react-use-measure)
+  // to size its WebGL viewport — a DETACHED element reports a 0x0 content
+  // rect no matter its inline width/height, which would capture empty frames.
+  // It must be connected to the document to have real layout dimensions.
+  // Hidden via opacity/pointer-events/z-index/off-screen position so it never
+  // flashes on screen, and removed in the finally block below.
   const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.top = '0';
+  container.style.left = '0';
   container.style.width = `${preset.width}px`;
   container.style.height = `${preset.height}px`;
+  container.style.opacity = '0';
+  container.style.pointerEvents = 'none';
+  container.style.zIndex = '-1';
+  document.body.appendChild(container);
 
   let root: Root | undefined;
   let store: RootStore;
@@ -253,7 +269,7 @@ export async function captureExportFrames(options: ExportRenderOptions): Promise
 
     // Bounded by both a timeout and options.signal: an unbounded Promise.all
     // here would hang forever if the GLTF load or onSceneReady never fires,
-    // and the try/finally below would never run, leaking the detached
+    // and the try/finally below would never run, leaking the off-screen
     // container + WebGL context (gl context is created as soon as
     // createRoot(...).render(...) mounts the Canvas, before either promise
     // resolves).
@@ -296,5 +312,6 @@ export async function captureExportFrames(options: ExportRenderOptions): Promise
     return { frames, frameFormat, preset, frameCount };
   } finally {
     root?.unmount();
+    container.remove();
   }
 }

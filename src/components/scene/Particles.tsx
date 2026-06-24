@@ -214,7 +214,10 @@ export function Particles({ pianoHandle, notes, forceEnabled, forcePoolSize }: P
         for (let n = 0; n < notes.length; n++) {
           if (bursted[n]) continue;
           const note = notes[n];
-          if (note.time > t) continue; // not started yet
+          // notes are time-sorted (audioEngine.loadMidi) — once we hit one
+          // that hasn't started, every later note is also in the future, so
+          // stop scanning instead of walking the whole tail every frame.
+          if (note.time > t) break;
           // Note has started (note.time <= t) and hasn't bursted: fire now,
           // regardless of how far past onset we are (handles export's
           // discrete frame steps, which may land slightly after note.time).
