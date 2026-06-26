@@ -1,10 +1,10 @@
 /**
- * Export quality tiers — resolution/fps/codec for the rendered MP4. These are
- * DISTINCT from the live GRAPHICS_PRESETS (src/themes/graphicsPresets.ts),
- * which only govern "how hard the GPU/CPU works while you watch it play" for
- * thermal safety. The export preset controls "what gets baked into the
- * downloaded video" and must NOT be confused with or derived from the live
- * preset — see design §7.
+ * Export quality tiers — resolution/fps/bitrates for the client-side MP4
+ * encode. These are DISTINCT from the live GRAPHICS_PRESETS
+ * (src/themes/graphicsPresets.ts), which only govern "how hard the GPU/CPU
+ * works while you watch it play" for thermal safety. The export preset
+ * controls "what gets baked into the downloaded video" and must NOT be
+ * confused with or derived from the live preset — see design §7.
  *
  * postFX + particles are FORCED ON for every export quality (REV 2 decision
  * 3), independent of whatever the live preset currently has selected. The
@@ -25,12 +25,10 @@ export interface ExportQualityPreset {
   width: number;
   height: number;
   fps: 24 | 30;
-  /** libx264 constant-rate-factor — lower = higher quality/bitrate. */
-  crf: number;
-  /** ffmpeg -preset value (encode speed/efficiency tradeoff). */
-  encodePreset: 'veryfast' | 'medium';
-  /** AAC audio bitrate, e.g. '128k'. */
-  audioBitrate: string;
+  /** H.264 video bitrate in bits-per-second. */
+  videoBitrate: number;
+  /** AAC audio bitrate in bits-per-second. */
+  audioBitrate: number;
   /** Forced ON for every export tier — never read from the live graphics preset. */
   enablePostFX: true;
   enableParticles: true;
@@ -44,9 +42,8 @@ export const EXPORT_PRESETS: Record<ExportQuality, ExportQualityPreset> = {
     width: 854,
     height: 480,
     fps: 24,
-    crf: 26,
-    encodePreset: 'veryfast',
-    audioBitrate: '128k',
+    videoBitrate: 2_500_000,
+    audioBitrate: 128_000,
     enablePostFX: true,
     enableParticles: true,
     particlePoolSize: 2048,
@@ -56,9 +53,8 @@ export const EXPORT_PRESETS: Record<ExportQuality, ExportQualityPreset> = {
     width: 1280,
     height: 720,
     fps: 30,
-    crf: 23,
-    encodePreset: 'veryfast',
-    audioBitrate: '192k',
+    videoBitrate: 5_000_000,
+    audioBitrate: 192_000,
     enablePostFX: true,
     enableParticles: true,
     particlePoolSize: 2048,
@@ -68,9 +64,8 @@ export const EXPORT_PRESETS: Record<ExportQuality, ExportQualityPreset> = {
     width: 1920,
     height: 1080,
     fps: 30,
-    crf: 20,
-    encodePreset: 'medium',
-    audioBitrate: '192k',
+    videoBitrate: 10_000_000,
+    audioBitrate: 192_000,
     enablePostFX: true,
     enableParticles: true,
     particlePoolSize: 2048,
