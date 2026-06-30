@@ -82,11 +82,11 @@ export function ExportDialog({
     if (phase === 'running') {
       abortRef.current?.abort();
     }
-    // Release the result blob URL on every close (download OR dismiss) so a
-    // finished 'high' export (100+ MB) isn't pinned in memory until the next
-    // open. The actual URL.revokeObjectURL runs in the [resultUrl] cleanup
-    // effect — a passive effect, so it fires after paint, safely past the
-    // browser's <a download> default action.
+    // Release the result blob URL when the dialog is dismissed (Done button,
+    // backdrop, or Escape) so a finished 'high' export (100+ MB) isn't pinned
+    // in memory until the next open. This path is never reached by the download
+    // anchor itself — downloading no longer closes the dialog — so the revoke
+    // can't race Chrome's asynchronous blob read.
     setResultUrl(null);
     onClose();
   }, [phase, onClose]);
@@ -271,15 +271,26 @@ export function ExportDialog({
             {phase === 'done' && resultUrl && resultFilename && (
               <>
                 <p className="text-sm text-text text-center">Your video is ready.</p>
+                {/* The download anchor deliberately does NOT close the dialog or
+                    revoke the blob URL. Chrome reads the blob asynchronously
+                    after the click, so revoking here races the read and fails
+                    large files ("Failed - Network error"). The URL is released
+                    only when a new export replaces it or the dialog unmounts
+                    (the [resultUrl] cleanup effect). The user closes via Done. */}
                 <a
                   href={resultUrl}
                   download={resultFilename}
-                  onClick={handleClose}
                   className="w-full rounded-full py-3 text-sm font-semibold text-black text-center transition-transform hover:scale-[1.02] active:scale-95"
                   style={{ background: grad.top, boxShadow: `0 4px 20px ${grad.glow}` }}
                 >
                   Download {resultFilename}
                 </a>
+                <button
+                  onClick={handleClose}
+                  className="w-full rounded-full bg-white/10 hover:bg-white/15 active:bg-white/20 transition-colors py-3 text-sm font-semibold text-text"
+                >
+                  Done
+                </button>
               </>
             )}
 
