@@ -12,7 +12,6 @@ import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useGraphicsStore } from '../services/graphicsStore';
 import type { InstrumentType } from '../utils/noteColors';
 import { MidiSource, isMidiDownloadable, isExportable } from '../types/midiSource';
-import { useAuthStore } from '../services/authStore';
 import { ExportDialog } from './ExportDialog';
 
 /**
@@ -53,7 +52,6 @@ export function Visualizer3D({
   const isCurated = midiSource === MidiSource.Curated;
   const isDownloadable = isMidiDownloadable(midiSource);
   const canExport = isExportable(midiSource);
-  const accessToken = useAuthStore((s) => s.session?.access_token);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const player = useAudioPlayer();
   const isMobile = useMediaQuery('(max-width: 639px)');
@@ -200,7 +198,6 @@ export function Visualizer3D({
         scrollSpeed={sceneScrollSpeed}
         durationSec={audioEngine.duration}
         pianoSustain={player.pianoSustain}
-        accessToken={accessToken}
       />
     </section>
   );

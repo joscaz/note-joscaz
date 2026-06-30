@@ -7,22 +7,7 @@ import type { ExportGraphicsOverride } from '../components/scene/Scene';
 import type { NoteEvent } from './audioEngine';
 import type { InstrumentType } from '../utils/noteColors';
 import { EXPORT_PRESETS, computeExportFrameCount, type ExportQuality, type ExportQualityPreset } from '../types/exportPresets';
-
-/**
- * Image format used for each captured frame. The backend's `_extract_frames`
- * step self-generates frame filenames as `frame_%06d.webp` and assumes the
- * bytes ARE WebP — it does not read the archive entry's extension. This is a
- * hard WEBP-ONLY contract: there is no fallback format. If the browser can't
- * encode WebP via canvas.toBlob, the export must fail loud BEFORE any
- * rendering/capture work starts (see assertWebpExportSupported), never
- * silently substitute JPEG bytes under a `.webp`-shaped contract.
- */
-export type ExportFrameFormat = 'image/webp';
-
-export interface ExportFrame {
-  index: number;
-  blob: Blob;
-}
+import type { ExportMuxer } from './exportMuxer';
 
 export interface ExportRenderOptions {
   notes: readonly NoteEvent[];
@@ -31,28 +16,18 @@ export interface ExportRenderOptions {
   quality: ExportQuality;
   /** MIDI-derived audible duration in seconds (audioEngine.duration). */
   durationSec: number;
-  /** WebP encode quality 0..1, passed straight through to canvas.toBlob. */
-  imageQuality?: number;
-  /** Called after each frame is captured; useful for progress UI (driven by WU4). */
+  /** Muxer that receives each rendered frame via addVideoFrame(). */
+  muxer: ExportMuxer;
+  /** Called after each frame is encoded; useful for progress UI (driven by WU4). */
   onProgress?: (capturedFrames: number, totalFrames: number) => void;
   /** Abort the capture loop early (checked between frames). */
   signal?: AbortSignal;
 }
 
 export interface ExportRenderResult {
-  frames: ExportFrame[];
-  frameFormat: ExportFrameFormat;
   preset: ExportQualityPreset;
   frameCount: number;
 }
-
-// WebP encode quality for captured frames. 0.72 (down from 0.85) trims each
-// frame roughly 40% — the dominant lever on the frames-archive size — with
-// negligible visible loss on the dark, bloom-heavy scene. Frames are the bulk
-// of the upload (one still per frame, no temporal compression until the server
-// muxes), so this directly raises the max exportable length before hitting the
-// upload ceiling.
-const DEFAULT_IMAGE_QUALITY = 0.72;
 
 /** Setup-phase readiness wait (GLTF load + first Scene mount) — generous
  * since the Piano model is a real network fetch, but bounded so a stuck
@@ -121,49 +96,6 @@ function withTimeoutAndAbort<T>(
 }
 
 /**
- * Probes WebP support via `canvas.toBlob` BEFORE any export work (audio
- * render, frame capture) starts. Per MDN/spec, a browser without WebP
- * encoding silently falls back to PNG from `toBlob` (not an error/rejection)
- * — so the only reliable signal is checking the resulting Blob's `type`.
- *
- * The backend hardcodes `.webp` for every extracted frame and assumes WebP
- * bytes (no fallback decoder) — this app already requires WebGL, so every
- * supported browser also supports WebP-in-canvas, and a probe failure here
- * means we must fail the export loud and early rather than silently upload
- * a corrupt (non-WebP-but-named-.webp) archive.
- */
-export async function assertWebpExportSupported(): Promise<void> {
-  const probeCanvas = document.createElement('canvas');
-  probeCanvas.width = 1;
-  probeCanvas.height = 1;
-
-  const blob = await new Promise<Blob | null>((resolve) => {
-    try {
-      probeCanvas.toBlob((b) => resolve(b), 'image/webp');
-    } catch {
-      resolve(null);
-    }
-  });
-
-  if (!blob || blob.type !== 'image/webp') {
-    throw new Error('Your browser does not support video export.');
-  }
-}
-
-function captureFrameBlob(canvas: HTMLCanvasElement, format: ExportFrameFormat, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error(`canvas.toBlob returned null (format=${format})`));
-      },
-      format,
-      quality,
-    );
-  });
-}
-
-/**
  * Deterministic, step-driven frame capture for MP4 export (design §4).
  *
  * The 3D scene is a pure function of Tone.getTransport().seconds (see
@@ -208,17 +140,16 @@ function captureFrameBlob(canvas: HTMLCanvasElement, format: ExportFrameFormat, 
  * useGraphicsStore, so the live thermal preset can't thin out the exported
  * video).
  *
- * Live playback is NOT touched: Tone.getTransport().seconds is mutated on
- * this offscreen capture's own render tree only insofar as the Transport
- * itself is a Tone.js singleton shared with the live scene — callers MUST
- * ensure the live Transport is paused/idle before calling this (WU4's
- * exportService is responsible for pausing playback and restoring
- * Transport.seconds afterward; this module does not manage that lifecycle).
+ * Each frame is fed directly to `muxer.addVideoFrame` as a VideoFrame at the
+ * precise µs timestamp, with a keyframe every 2 seconds (i % (fps * 2) === 0).
+ * Live playback is NOT touched: callers MUST ensure the live Transport is
+ * paused/idle before calling this (exportService is responsible for pausing
+ * playback and restoring Transport.seconds afterward; this module does not
+ * manage that lifecycle).
  */
 export async function captureExportFrames(options: ExportRenderOptions): Promise<ExportRenderResult> {
   const preset = EXPORT_PRESETS[options.quality];
   const frameCount = computeExportFrameCount(options.durationSec, preset);
-  const imageQuality = options.imageQuality ?? DEFAULT_IMAGE_QUALITY;
 
   const exportOverride: ExportGraphicsOverride = {
     enablePostFX: preset.enablePostFX,
@@ -286,15 +217,8 @@ export async function captureExportFrames(options: ExportRenderOptions): Promise
       `Export setup timed out after ${SETUP_READY_TIMEOUT_MS}ms waiting for scene/store readiness`,
     );
     const gl = store.getState().gl;
-    // gl.domElement is the canvas r3f rendered into — same one we read back from.
+    // gl.domElement is the canvas r3f rendered into — same one we feed to the muxer.
     const canvas = gl.domElement;
-    // WEBP-ONLY contract (see assertWebpExportSupported's doc comment) — the
-    // caller (exportService.runExport) MUST have already verified WebP
-    // support before this function is ever invoked, so there is no runtime
-    // branching/fallback here.
-    const frameFormat: ExportFrameFormat = 'image/webp';
-
-    const frames: ExportFrame[] = [];
     const transport = Tone.getTransport();
 
     for (let i = 0; i < frameCount; i++) {
@@ -310,12 +234,18 @@ export async function captureExportFrames(options: ExportRenderOptions): Promise
       // offscreen root only (see doc comment above this function).
       advance(tSeconds * 1000, true, store.getState());
 
-      const blob = await captureFrameBlob(canvas, frameFormat, imageQuality);
-      frames.push({ index: i, blob });
-      options.onProgress?.(frames.length, frameCount);
+      // Keyframe every 2 seconds (i % (fps * 2) === 0). Frame 0 is always a
+      // keyframe. The muxer wraps the canvas in a VideoFrame at tMicros,
+      // encodes it (with backpressure), and closes the frame.
+      await options.muxer.addVideoFrame(
+        canvas,
+        Math.round(tSeconds * 1e6),
+        i % (preset.fps * 2) === 0,
+      );
+      options.onProgress?.(i + 1, frameCount);
     }
 
-    return { frames, frameFormat, preset, frameCount };
+    return { preset, frameCount };
   } finally {
     root?.unmount();
     container.remove();

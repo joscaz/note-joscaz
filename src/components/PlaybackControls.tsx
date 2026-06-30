@@ -5,7 +5,6 @@ import type { AudioSource } from '../services/audioEngine';
 import type { InstrumentType } from '../utils/noteColors';
 import { NOTE_GRADIENTS } from '../utils/noteColors';
 import { MidiSource, isExportable } from '../types/midiSource';
-import { useExportTokenStore } from '../services/exportToken';
 
 interface PlayerApi {
   isPlaying: boolean;
@@ -56,19 +55,8 @@ export function PlaybackControls({
   onExportClick,
 }: PlaybackControlsProps) {
   const grad = NOTE_GRADIENTS[instrument];
-  // Subscribe to the export token so this gate re-evaluates the moment a
-  // token is minted or cleared. The user-MIDI provenance token is minted
-  // async (one backend round-trip) AFTER midiSource flips to UserMidi, so
-  // gating on isExportable(midiSource) alone would show the Export button
-  // before the token lands — the first click would then fail with a
-  // misleading "not eligible" error. Require a present, non-expired token
-  // here too (the server still re-verifies; this is a UX gate).
-  const exportToken = useExportTokenStore((s) => s.token);
-  const exportExp = useExportTokenStore((s) => s.exp);
-  const hasFreshToken =
-    exportToken != null && (exportExp == null || exportExp * 1000 > Date.now());
-  // Fail-closed export gate: provenance (midiSource) AND a fresh token.
-  const canExport = isExportable(midiSource) && hasFreshToken;
+  // Export gate: MIDI provenance only — no token required in the client-side pipeline.
+  const canExport = isExportable(midiSource);
 
   // Keyboard shortcuts: Space = toggle, R = restart, ArrowUp/Down = scroll speed.
   useEffect(() => {

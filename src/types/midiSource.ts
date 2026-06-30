@@ -7,9 +7,11 @@
  *   curated select      -> Curated
  *   demo preload        -> Demo
  *
- * This is the CLIENT-side gate (Layer 1, UX only — hides/disables the Export
- * affordance). It is NOT trusted by the backend; the server independently
- * revalidates provenance via a signed token before encoding (see design §3).
+ * This is the CLIENT-side export gate — it hides/disables the Export
+ * affordance for non-exportable sources. Export now runs fully client-side
+ * (WebCodecs), so this is the ONLY enforcement layer; there is no server-side
+ * revalidation. A determined user could bypass it, which is an accepted
+ * tradeoff for this client-only pipeline.
  *
  * Fail-closed: any value outside the known set (including null/undefined)
  * resolves to NOT exportable / NOT downloadable.

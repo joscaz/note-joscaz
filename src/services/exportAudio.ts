@@ -7,6 +7,7 @@ import {
 } from './audioEngine';
 import type { NoteEvent } from './audioEngine';
 import type { InstrumentType } from '../utils/noteColors';
+import type { ExportMuxer } from './exportMuxer';
 
 /**
  * Synth-only offline audio render for MP4 export (design §5, REV 2 decision
@@ -49,6 +50,10 @@ import type { InstrumentType } from '../utils/noteColors';
  * true (sustain on / natural decay) but WU4 will pass the live
  * `audioEngine.pianoSustain` value through so the export is WYSIWYG with
  * whatever the user last toggled before exporting.
+ *
+ * Audio chunks are fed to `muxer` as f32-planar AudioData objects in
+ * AUDIO_CHUNK_SIZE-sample batches. The muxer eagerly copies each chunk, so
+ * calling data.close() immediately after muxer.addAudioChunk(data) is safe.
  */
 
 export interface ExportAudioOptions {
@@ -78,10 +83,11 @@ export interface ExportAudioOptions {
    * abort mid-render cannot stop the underlying OfflineAudioContext, only
    * prevent its result from being used). */
   signal?: AbortSignal;
+  /** Muxer that receives the rendered audio as f32-planar AudioData chunks. */
+  muxer: ExportMuxer;
 }
 
 export interface ExportAudioResult {
-  wavBlob: Blob;
   sampleRate: number;
   durationSec: number;
   numChannels: number;
@@ -89,6 +95,14 @@ export interface ExportAudioResult {
 
 const DEFAULT_SAMPLE_RATE = 44_100;
 const DEFAULT_NUM_CHANNELS = 2;
+
+/**
+ * Chunk size for AudioData objects fed to the muxer: 16 × 1024 AAC frames
+ * (~0.37 s at 44.1 kHz). Multiple of the 1024-sample AAC frame size so
+ * encoder framing stays clean, large enough to amortise per-call/GC
+ * overhead, small enough to bound the transient Float32Array copy.
+ */
+const AUDIO_CHUNK_SIZE = 16_384;
 
 const PIANO_SAMPLER_URLS: Record<string, string> = {
   A1: 'A1.mp3',
@@ -207,10 +221,11 @@ function scheduleNotesOnto(
 }
 
 /**
- * Renders the SYNTH-ONLY export audio via Tone.Offline and encodes the
- * result as a 16-bit PCM WAV Blob (the backend's `audio` multipart field —
- * see design §6/§8 and the cross-repo contract: POST /export/mp4 expects a
- * WAV file plus `meta.audioSampleRate`/`meta.durationSec`).
+ * Renders the SYNTH-ONLY export audio via Tone.Offline, then feeds the
+ * resulting AudioBuffer to `muxer` as a stream of f32-planar AudioData
+ * chunks (AUDIO_CHUNK_SIZE samples each). The muxer eagerly copies each
+ * chunk before returning, so data.close() after each call is safe and
+ * releases the backing ArrayBuffer promptly.
  */
 export async function renderExportAudio(options: ExportAudioOptions): Promise<ExportAudioResult> {
   const sampleRate = options.sampleRate ?? DEFAULT_SAMPLE_RATE;
@@ -245,12 +260,42 @@ export async function renderExportAudio(options: ExportAudioOptions): Promise<Ex
       throw new DOMException('Export aborted', 'AbortError');
     }
 
-    const wavBlob = audioBufferToWavBlob(buffer.get() as AudioBuffer, numChannels);
+    // Chunk the rendered AudioBuffer into f32-planar AudioData objects and
+    // feed them to the muxer. The muxer eagerly copies each chunk's planes
+    // so data.close() immediately after addAudioChunk() is safe.
+    const audioBuffer = buffer.get() as AudioBuffer;
+    const len = audioBuffer.length;
+    const sr = audioBuffer.sampleRate;
+    // Cap at the actual number of channels the offline render produced.
+    const nc = Math.min(numChannels, audioBuffer.numberOfChannels);
+
+    for (let off = 0; off < len; off += AUDIO_CHUNK_SIZE) {
+      const nf = Math.min(AUDIO_CHUNK_SIZE, len - off);
+
+      // f32-planar layout: all samples for ch0, then all for ch1, …
+      const plane = new Float32Array(nf * nc);
+      for (let ch = 0; ch < nc; ch++) {
+        plane.set(audioBuffer.getChannelData(ch).subarray(off, off + nf), ch * nf);
+      }
+
+      const data = new AudioData({
+        format: 'f32-planar',
+        sampleRate: sr,
+        numberOfFrames: nf,
+        numberOfChannels: nc,
+        timestamp: Math.round((off / sr) * 1e6),
+        data: plane,
+      });
+
+      // addAudioChunk eagerly copies the planes and takes ownership of the
+      // AudioData, closing it internally — do NOT close it again here
+      // (AudioData.close() is not spec-guaranteed idempotent).
+      options.muxer.addAudioChunk(data);
+    }
 
     options.onProgress?.(1, 1);
 
     return {
-      wavBlob,
       sampleRate,
       durationSec: options.durationSec,
       numChannels,
@@ -266,69 +311,4 @@ export async function renderExportAudio(options: ExportAudioOptions): Promise<Ex
     chain?.synthGain.dispose();
     chain?.masterVolume.dispose();
   }
-}
-
-/**
- * Dependency-free 16-bit PCM WAV encoder. AudioBuffer/ToneAudioBuffer are
- * context-agnostic (Spike 0 verified fact) so this takes a plain AudioBuffer
- * and writes a minimal, correct RIFF/WAVE file: 44-byte header (RIFF chunk,
- * fmt sub-chunk for PCM, data sub-chunk) followed by interleaved, clamped
- * 16-bit little-endian samples. No npm dependency — deliberately small and
- * fully deterministic (pure function of the input buffer).
- */
-function audioBufferToWavBlob(buffer: AudioBuffer, numChannels: number): Blob {
-  const channels = Math.min(numChannels, buffer.numberOfChannels);
-  const sampleRate = buffer.sampleRate;
-  const frameCount = buffer.length;
-  const bytesPerSample = 2; // 16-bit PCM
-  const blockAlign = channels * bytesPerSample;
-  const dataSize = frameCount * blockAlign;
-  const headerSize = 44;
-  const totalSize = headerSize + dataSize;
-
-  const arrayBuffer = new ArrayBuffer(totalSize);
-  const view = new DataView(arrayBuffer);
-
-  function writeString(offset: number, str: string): void {
-    for (let i = 0; i < str.length; i++) {
-      view.setUint8(offset + i, str.charCodeAt(i));
-    }
-  }
-
-  // RIFF chunk descriptor
-  writeString(0, 'RIFF');
-  view.setUint32(4, totalSize - 8, true);
-  writeString(8, 'WAVE');
-
-  // fmt sub-chunk
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true); // sub-chunk size (PCM = 16)
-  view.setUint16(20, 1, true); // audio format = 1 (PCM)
-  view.setUint16(22, channels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true); // byte rate
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bytesPerSample * 8, true); // bits per sample
-
-  // data sub-chunk
-  writeString(36, 'data');
-  view.setUint32(40, dataSize, true);
-
-  // Interleave channels, clamp to [-1, 1], convert to 16-bit signed PCM.
-  const channelData: Float32Array[] = [];
-  for (let ch = 0; ch < channels; ch++) {
-    channelData.push(buffer.getChannelData(ch));
-  }
-
-  let offset = headerSize;
-  for (let i = 0; i < frameCount; i++) {
-    for (let ch = 0; ch < channels; ch++) {
-      const clamped = Math.max(-1, Math.min(1, channelData[ch][i]));
-      const sample = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
-      view.setInt16(offset, sample, true);
-      offset += bytesPerSample;
-    }
-  }
-
-  return new Blob([arrayBuffer], { type: 'audio/wav' });
 }

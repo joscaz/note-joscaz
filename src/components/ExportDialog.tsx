@@ -19,9 +19,6 @@ interface ExportDialogProps {
   scrollSpeed: number;
   durationSec: number;
   pianoSustain: boolean;
-  /** Supabase access token. Export is impossible without one — the dialog
-   * surfaces an auth-required message rather than attempting the request. */
-  accessToken?: string;
 }
 
 type DialogPhase = 'picking' | 'running' | 'done' | 'error';
@@ -29,23 +26,18 @@ type DialogPhase = 'picking' | 'running' | 'done' | 'error';
 const QUALITY_OPTIONS: { quality: ExportQuality; label: string; hint: string }[] = [
   { quality: 'low', label: 'Low', hint: '854×480 · 24fps' },
   { quality: 'medium', label: 'Medium', hint: '1280×720 · 30fps' },
-  { quality: 'high', label: 'High', hint: '1920×1080 · 30fps' },
+  { quality: 'high', label: 'High', hint: '1920×1080 · 120fps' },
 ];
 
-/** User-facing copy per ExportErrorCode — mirrors design §10's FAILURES table. */
+/** User-facing copy per ExportErrorCode. */
 const ERROR_MESSAGES: Record<ExportErrorCode, string> = {
-  'auth-required': 'Please sign in to export a video.',
-  'token-expired': 'Your session or export token expired. Reload your piece and try again.',
-  'token-invalid': 'This piece is not eligible for export. Reload your piece and try again.',
-  'too-large': 'The export is too large — pick a lower quality.',
-  'quota-exceeded': "You've reached today's export limit. Try again tomorrow.",
-  timeout: 'Export timed out on the server — try a lower quality.',
+  'unsupported-browser': 'Your browser does not support hardware video encoding. Try Chrome or Edge.',
   aborted: 'Export cancelled.',
-  'unsupported-browser': 'Your browser does not support video export.',
+  'encode-failed': 'Video encoding failed. Try a lower quality or a different browser.',
   unknown: 'Something went wrong while exporting. Please try again.',
 };
 
-const STAGE_LABELS: ExportStage[] = ['Rendering audio', 'Capturing frames', 'Packaging', 'Uploading', 'Encoding', 'Done'];
+const STAGE_LABELS: ExportStage[] = ['Rendering audio', 'Encoding video', 'Finalizing', 'Done'];
 
 export function ExportDialog({
   open,
@@ -55,7 +47,6 @@ export function ExportDialog({
   scrollSpeed,
   durationSec,
   pianoSustain,
-  accessToken,
 }: ExportDialogProps) {
   const grad = NOTE_GRADIENTS[instrument];
   const [quality, setQuality] = useState<ExportQuality>(DEFAULT_EXPORT_QUALITY);
@@ -91,6 +82,12 @@ export function ExportDialog({
     if (phase === 'running') {
       abortRef.current?.abort();
     }
+    // Release the result blob URL when the dialog is dismissed (Done button,
+    // backdrop, or Escape) so a finished 'high' export (100+ MB) isn't pinned
+    // in memory until the next open. This path is never reached by the download
+    // anchor itself — downloading no longer closes the dialog — so the revoke
+    // can't race Chrome's asynchronous blob read.
+    setResultUrl(null);
     onClose();
   }, [phase, onClose]);
 
@@ -107,12 +104,6 @@ export function ExportDialog({
   }, [open, handleClose]);
 
   const handleStart = useCallback(async () => {
-    if (!accessToken) {
-      setPhase('error');
-      setErrorMessage(ERROR_MESSAGES['auth-required']);
-      return;
-    }
-
     const controller = new AbortController();
     abortRef.current = controller;
     setPhase('running');
@@ -126,7 +117,6 @@ export function ExportDialog({
         durationSec,
         quality,
         pianoSustain,
-        accessToken,
         signal: controller.signal,
         onProgress: (progress) => {
           setStage(progress.stage);
@@ -159,7 +149,7 @@ export function ExportDialog({
     } finally {
       abortRef.current = null;
     }
-  }, [accessToken, notes, instrument, scrollSpeed, durationSec, quality, pianoSustain]);
+  }, [notes, instrument, scrollSpeed, durationSec, quality, pianoSustain]);
 
   const activeStageIdx = STAGE_LABELS.indexOf(stage);
 
@@ -203,6 +193,12 @@ export function ExportDialog({
 
             {phase === 'picking' && (
               <>
+                {navigator.userAgent.includes('Firefox') && (
+                  <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-xs text-yellow-200 leading-relaxed">
+                    Firefox does not support hardware H.264 encoding — export may fail or be
+                    slow. For best results, use Chrome or Edge.
+                  </div>
+                )}
                 <div className="grid grid-cols-3 gap-2">
                   {QUALITY_OPTIONS.map((opt) => (
                     <button
@@ -275,15 +271,26 @@ export function ExportDialog({
             {phase === 'done' && resultUrl && resultFilename && (
               <>
                 <p className="text-sm text-text text-center">Your video is ready.</p>
+                {/* The download anchor deliberately does NOT close the dialog or
+                    revoke the blob URL. Chrome reads the blob asynchronously
+                    after the click, so revoking here races the read and fails
+                    large files ("Failed - Network error"). The URL is released
+                    only when a new export replaces it or the dialog unmounts
+                    (the [resultUrl] cleanup effect). The user closes via Done. */}
                 <a
                   href={resultUrl}
                   download={resultFilename}
-                  onClick={handleClose}
                   className="w-full rounded-full py-3 text-sm font-semibold text-black text-center transition-transform hover:scale-[1.02] active:scale-95"
                   style={{ background: grad.top, boxShadow: `0 4px 20px ${grad.glow}` }}
                 >
                   Download {resultFilename}
                 </a>
+                <button
+                  onClick={handleClose}
+                  className="w-full rounded-full bg-white/10 hover:bg-white/15 active:bg-white/20 transition-colors py-3 text-sm font-semibold text-text"
+                >
+                  Done
+                </button>
               </>
             )}
 
