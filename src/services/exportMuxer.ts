@@ -133,9 +133,10 @@ export interface ExportMuxer {
   ): Promise<void>;
 
   /**
-   * Eagerly copies `data` into a new AudioSample buffer, schedules AAC
-   * encoding, then closes `data`. The caller can safely close `data`
-   * immediately — it is always consumed before this call returns.
+   * Takes ownership of `data`: eagerly copies its planes into a new
+   * AudioSample, schedules AAC encoding, then closes `data` internally. The
+   * caller MUST NOT close `data` afterward — AudioData.close() is not
+   * spec-guaranteed idempotent, so a double close is undefined behavior.
    */
   addAudioChunk(data: AudioData): void;
 
@@ -333,6 +334,15 @@ export async function createExportMuxer(
       if (output.state !== 'finalized' && output.state !== 'canceled') {
         void output.cancel();
       }
+      // Cancelling force-closes the sources, so any videoSource.add() /
+      // audioSource.add() Promise still in flight rejects with "Output has been
+      // canceled". finalize() — the only place these arrays are awaited — is
+      // never called on the dispose/abort path, so attach no-op rejection
+      // handlers here to keep those expected rejections from surfacing as
+      // window.unhandledrejection. (Done only here, NOT at push time, so a real
+      // encode error still propagates through Promise.all in finalize().)
+      for (const p of pendingVideo) void p.catch(() => {});
+      for (const p of pendingAudio) void p.catch(() => {});
     },
   };
 }
