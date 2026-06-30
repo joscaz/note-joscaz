@@ -26,7 +26,7 @@ type DialogPhase = 'picking' | 'running' | 'done' | 'error';
 const QUALITY_OPTIONS: { quality: ExportQuality; label: string; hint: string }[] = [
   { quality: 'low', label: 'Low', hint: '854×480 · 24fps' },
   { quality: 'medium', label: 'Medium', hint: '1280×720 · 30fps' },
-  { quality: 'high', label: 'High', hint: '1920×1080 · 30fps' },
+  { quality: 'high', label: 'High', hint: '1920×1080 · 120fps' },
 ];
 
 /** User-facing copy per ExportErrorCode. */

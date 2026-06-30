@@ -24,7 +24,7 @@ export interface ExportQualityPreset {
   quality: ExportQuality;
   width: number;
   height: number;
-  fps: 24 | 30;
+  fps: 24 | 30 | 60 | 120;
   /** H.264 video bitrate in bits-per-second. */
   videoBitrate: number;
   /** AAC audio bitrate in bits-per-second. */
@@ -63,8 +63,13 @@ export const EXPORT_PRESETS: Record<ExportQuality, ExportQualityPreset> = {
     quality: 'high',
     width: 1920,
     height: 1080,
-    fps: 30,
-    videoBitrate: 10_000_000,
+    // 1080p120 exceeds H.264 Level 4.2 (~1080p64 ceiling), so resolveH264Codec
+    // must negotiate a Level 5.2 codec string — see H264_CANDIDATES in
+    // exportMuxer.ts. Bitrate is raised from 10 to 30 Mbps because the 4x frame
+    // rate otherwise starves high-motion regions (falling bars / particles) and
+    // produces visible blocking.
+    fps: 120,
+    videoBitrate: 30_000_000,
     audioBitrate: 192_000,
     enablePostFX: true,
     enableParticles: true,

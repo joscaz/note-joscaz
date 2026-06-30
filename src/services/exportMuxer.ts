@@ -51,10 +51,22 @@ export function isWebCodecsSupported(): boolean {
 // Codec negotiation
 // ---------------------------------------------------------------------------
 
-/** H.264 profile/level candidates ordered from most to least capable. */
+/**
+ * H.264 profile/level candidates. resolveH264Codec probes these in order and
+ * returns the first the browser accepts for the requested width/height/fps.
+ *
+ * L4.2 is listed first because it covers everything up to ~1080p64 and is the
+ * most broadly hardware-accelerated tier. The L5.2 entries are the high
+ * frame-rate fallback: a 1080p120 export (the HIGH preset) exceeds L4.2's
+ * macroblock-rate ceiling, so isConfigSupported rejects the L4.2 strings for
+ * it and selection falls through to L5.2. Low/medium exports still land on
+ * L4.2 because it is probed first and accepts their config.
+ */
 const H264_CANDIDATES = [
-  'avc1.42002a', // Baseline L4.2 — covers up to 1080p30
+  'avc1.42002a', // Baseline L4.2 — covers up to ~1080p64
   'avc1.4d002a', // Main      L4.2
+  'avc1.640034', // High      L5.2 — 1080p120 high frame-rate fallback
+  'avc1.4d0034', // Main      L5.2
   'avc1.42001e', // Baseline  L3.0 — fallback for low/medium
   'avc1.4d001e', // Main      L3.0
 ] as const;
