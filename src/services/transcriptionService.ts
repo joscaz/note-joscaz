@@ -20,6 +20,8 @@
 import { Midi } from '@tonejs/midi';
 import type { InstrumentType } from '../utils/noteColors';
 import { generateMockMidi } from '../utils/mockMidi';
+import { useExportTokenStore } from './exportToken';
+import { MidiSource } from '../types/midiSource';
 
 const API_BASE: string =
   (import.meta.env.VITE_TRANSCRIBE_API_URL as string | undefined) ??
@@ -69,7 +71,7 @@ export async function transcribe(
   }
 
   try {
-    const midiBytes = await uploadAndTranscribe(
+    const { bytes: midiBytes, exportToken } = await uploadAndTranscribe(
       file,
       instrument,
       audioBuffer?.duration,
@@ -85,6 +87,15 @@ export async function transcribe(
     }
     emitProgress(onProgress, 2, 1);
     onProgress?.(1, 'Complete');
+
+    // Provenance Layer 2 (design §3): the backend mints a short-lived export
+    // token for transcribed audio and rides it back on this response's
+    // `X-Export-Token` header. Stash it so a later /export/mp4 call can
+    // attach it. A failed/missing header just means export stays disabled
+    // until the next mint — never throws, never blocks transcription.
+    if (exportToken) {
+      stashExportToken(exportToken, MidiSource.Transcribed);
+    }
 
     return {
       midi,
@@ -165,14 +176,22 @@ function clampPianoDurations(midi: Midi): void {
 
 /* -------------------------- backend request helper ------------------------ */
 
+interface UploadAndTranscribeResult {
+  bytes: ArrayBuffer;
+  /** Raw JWT from the `X-Export-Token` response header, if present. Requires
+   * the backend's CORS config to list it in Access-Control-Expose-Headers —
+   * otherwise getResponseHeader silently returns null (see design §3). */
+  exportToken: string | null;
+}
+
 function uploadAndTranscribe(
   file: File,
   instrument: InstrumentType,
   audioDurationSec: number | undefined,
   onProgress: TranscribeOptions['onProgress'],
   accessToken?: string,
-): Promise<ArrayBuffer> {
-  return new Promise<ArrayBuffer>((resolve, reject) => {
+): Promise<UploadAndTranscribeResult> {
+  return new Promise<UploadAndTranscribeResult>((resolve, reject) => {
     const form = new FormData();
     form.append('file', file, file.name);
 
@@ -224,7 +243,10 @@ function uploadAndTranscribe(
       stopTweening();
       if (xhr.status >= 200 && xhr.status < 300) {
         emitProgress(onProgress, 1, 1);
-        resolve(xhr.response as ArrayBuffer);
+        resolve({
+          bytes: xhr.response as ArrayBuffer,
+          exportToken: xhr.getResponseHeader('X-Export-Token'),
+        });
       } else if (xhr.status === 429) {
         reject(new TranscriptionLimitError());
       } else {
@@ -273,6 +295,60 @@ async function mockTranscribe(
     instrumentType: instrument,
     real: false,
   };
+}
+
+/* --------------------------- export token helpers -------------------------- */
+
+/**
+ * Decodes the unverified `exp` claim out of a JWT's payload segment, purely
+ * for local UX (e.g. "this token might be stale, re-transcribe"). We do NOT
+ * verify the signature client-side — that would be meaningless without the
+ * server's secret, and isn't the point: the server independently re-verifies
+ * the token on every /export/mp4 call (design §3 Layer 2).
+ */
+function decodeJwtExp(token: string): number | null {
+  try {
+    const payloadSegment = token.split('.')[1];
+    if (!payloadSegment) return null;
+    const base64 = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
+    const json = atob(base64);
+    const claims = JSON.parse(json) as { exp?: number };
+    return typeof claims.exp === 'number' ? claims.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+function stashExportToken(token: string, source: typeof MidiSource[keyof typeof MidiSource]): void {
+  const exp = decodeJwtExp(token) ?? Math.floor(Date.now() / 1000) + 3600;
+  useExportTokenStore.getState().setToken(token, source, exp);
+}
+
+/**
+ * Mints an export-provenance token for a user-uploaded .mid file (design §3,
+ * Layer 2, issuance path (b)). Unlike /transcribe, parsing a user-supplied
+ * MIDI is purely client-side (`new Midi(arrayBuffer)`) — there's no existing
+ * backend touchpoint to piggyback a header on, so this is a deliberate,
+ * dedicated round-trip whose only purpose is letting the server (the sole
+ * token issuer) mint provenance for this upload. Never throws on failure —
+ * the caller just ends up with no fresh token, so Export stays disabled
+ * until the next successful mint.
+ */
+export async function mintMidiUploadToken(accessToken?: string): Promise<void> {
+  if (!accessToken) return;
+  try {
+    const res = await fetch(`${API_BASE}/export/midi-token`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return;
+    const data = (await res.json()) as { token?: string; exp?: number };
+    if (!data.token) return;
+    const exp = data.exp ?? decodeJwtExp(data.token) ?? Math.floor(Date.now() / 1000) + 3600;
+    useExportTokenStore.getState().setToken(data.token, MidiSource.UserMidi, exp);
+  } catch (err) {
+    console.warn('[NoteJoscaz] Failed to mint export token for uploaded MIDI:', err);
+  }
 }
 
 /* ------------------------------ progress helper --------------------------- */

@@ -9,15 +9,15 @@ import { BackendStatus } from './BackendStatus';
 import { audioEngine, type NoteEvent } from '../services/audioEngine';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import type { InstrumentType } from '../utils/noteColors';
+import { MidiSource, isMidiDownloadable } from '../types/midiSource';
 
 interface VisualizerProps {
   midi: Midi;
   instrument: InstrumentType;
   fileName: string | null;
   isRealTranscription: boolean;
-  isCurated?: boolean;
+  midiSource?: MidiSource | null;
   curatedAttribution?: string | null;
-  isDownloadable?: boolean;
 }
 
 export function Visualizer({
@@ -25,10 +25,11 @@ export function Visualizer({
   instrument,
   fileName,
   isRealTranscription,
-  isCurated,
+  midiSource,
   curatedAttribution,
-  isDownloadable = true,
 }: VisualizerProps) {
+  const isCurated = midiSource === MidiSource.Curated;
+  const isDownloadable = isMidiDownloadable(midiSource);
   const player = useAudioPlayer();
   const [scrollSpeed, setScrollSpeed] = useState(220);
   // scheduleBpm is the Transport BPM captured when loadMidi was called. It
@@ -136,6 +137,7 @@ export function Visualizer({
         midi={midi}
         instrument={instrument}
         isDownloadable={isDownloadable}
+        midiSource={midiSource}
       />
 
       <StatsGrid notes={notes} midi={midi} instrument={instrument} />

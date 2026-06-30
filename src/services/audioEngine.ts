@@ -4,6 +4,37 @@ import type { InstrumentType } from '../utils/noteColors';
 
 export type AudioSource = 'mp3' | 'synth' | 'both';
 
+/**
+ * Sampler `release` values — the source of truth for both live playback
+ * (loadInstruments below) and the offline export render (exportAudio.ts
+ * mirrors these exactly so exported audio timbre/decay matches live).
+ */
+export const PIANO_RELEASE_SEC = 1;
+export const GUITAR_RELEASE_SEC = 0.8;
+
+/**
+ * Signal-chain levels — the source of truth for both live playback and the
+ * offline export render (exportAudio.ts imports these so the exported audio's
+ * loudness/limiting matches live exactly; without sharing them, a change here
+ * would silently drift the export ~dB off from what the user heard).
+ */
+export const MASTER_VOLUME_DB = -4;
+export const GUITAR_LIMITER_THRESHOLD_DB = -3;
+
+/**
+ * Tail pad appended after the last note's end when computing the piece's
+ * total audible duration (see `_duration` below). Must be >= the active
+ * instrument's sampler `release` so the last note's natural decay isn't
+ * truncated by the render/transport end. This value feeds BOTH the audio
+ * render length (Tone.Offline duration / exportAudio.ts) and the visual
+ * frame count (computeExportFrameCount in exportPresets.ts), so audio and
+ * video always stay the same length — fix tail-truncation bugs here, not
+ * in either consumer.
+ */
+function tailPadSecFor(instrument: InstrumentType): number {
+  return instrument === 'piano' ? PIANO_RELEASE_SEC : GUITAR_RELEASE_SEC;
+}
+
 type NoteEvent = {
   midi: number;
   time: number;
@@ -64,7 +95,7 @@ class AudioEngine {
   private _pianoSustain = true;
 
   constructor() {
-    this.masterVolume = new Tone.Volume(-4).toDestination();
+    this.masterVolume = new Tone.Volume(MASTER_VOLUME_DB).toDestination();
     this.mp3Gain = new Tone.Gain(0).connect(this.masterVolume);
     this.synthGain = new Tone.Gain(1).connect(this.masterVolume);
   }
@@ -97,7 +128,7 @@ class AudioEngine {
           C6: 'C6.mp3',
           C7: 'C7.mp3',
         },
-        release: 1,
+        release: PIANO_RELEASE_SEC,
         baseUrl: 'https://tonejs.github.io/audio/salamander/',
       }).connect(this.synthGain);
 
@@ -124,10 +155,10 @@ class AudioEngine {
           E4: 'E4.mp3',
           A4: 'A4.mp3',
         },
-        release: 0.8,
+        release: GUITAR_RELEASE_SEC,
         baseUrl:
           'https://nbrosowsky.github.io/tonejs-instruments/samples/guitar-acoustic/',
-      }).connect(new Tone.Limiter(-3).connect(this.synthGain));
+      }).connect(new Tone.Limiter(GUITAR_LIMITER_THRESHOLD_DB).connect(this.synthGain));
 
       await Tone.loaded();
       this._ready = true;
@@ -169,7 +200,13 @@ class AudioEngine {
     }
     notes.sort((a, b) => a.time - b.time);
     this.midiNotes = notes;
-    this._duration = maxEnd + 0.5;
+    // Tail pad is instrument-aware (see tailPadSecFor) so the last note's
+    // natural sample decay (piano release: 1s) isn't truncated by transport
+    // end / export render length — a flat 0.5s pad was shorter than piano's
+    // release and cut the final note's tail audibly. A slightly longer pad
+    // is harmless for live playback (auto-pause/loop end just land a little
+    // later); it must not be shorter than the active instrument's release.
+    this._duration = maxEnd + tailPadSecFor(instrument);
 
     // Longest note duration = the bisect window in updateActiveNotes, tracked as
     // a running max in the build loop above. NOT Math.max(...notes.map(...)):

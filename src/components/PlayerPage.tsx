@@ -19,6 +19,9 @@ import type { InstrumentType } from '../utils/noteColors';
 import { curatedMidis } from '../utils/curatedMidis';
 import type { CuratedMidi } from '../utils/curatedMidis';
 import { supabase } from '../services/supabaseClient';
+import { MidiSource } from '../types/midiSource';
+import { mintMidiUploadToken } from '../services/transcriptionService';
+import { useExportTokenStore } from '../services/exportToken';
 
 type VizMode = 'legacy' | 'beta';
 const VIZ_MODE_KEY = 'noteforge:vizMode';
@@ -75,15 +78,13 @@ export function PlayerPage() {
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [midi, setMidi] = useState<Midi | null>(null);
   const [isReal, setIsReal] = useState(false);
-  const [isCurated, setIsCurated] = useState(false);
-  const [isUserMidi, setIsUserMidi] = useState(false);
+  const [midiSource, setMidiSource] = useState<MidiSource>(MidiSource.Demo);
   const [userMidiName, setUserMidiName] = useState<string | null>(null);
   const [midiUploadError, setMidiUploadError] = useState<string | null>(null);
   const [curatedError, setCuratedError] = useState<string | null>(null);
   const [curatedAttribution, setCuratedAttribution] = useState<string | null>(null);
   const [activeCuratedId, setActiveCuratedId] = useState<string | null>(null);
   const [loadingCuratedId, setLoadingCuratedId] = useState<string | null>(null);
-  const [isDownloadable, setIsDownloadable] = useState(true);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('Decoding audio');
@@ -102,6 +103,10 @@ export function PlayerPage() {
       audioEngine.loadMidi(demo, 'piano');
       audioEngine.setSource('synth');
       setMidi(demo);
+      setMidiSource(MidiSource.Demo);
+      // Demo is never exportable (fail-closed) — clear any token left over
+      // from a previous exportable piece so it can't leak across loads.
+      useExportTokenStore.getState().clearToken();
     })();
     return () => { cancelled = true; };
   }, []);
@@ -121,13 +126,10 @@ export function PlayerPage() {
   const handleFileReady = useCallback((f: File, buf: AudioBuffer) => {
     setFile(f);
     setBuffer(buf);
-    setIsCurated(false);
-    setIsUserMidi(false);
     setUserMidiName(null);
     setMidiUploadError(null);
     setCuratedAttribution(null);
     setActiveCuratedId(null);
-    setIsDownloadable(true);
     void audioEngine.loadAudio(buf);
   }, []);
 
@@ -160,13 +162,21 @@ export function PlayerPage() {
       });
       setMidi(result.midi);
       setIsReal(result.real);
-      setIsCurated(false);
-      setIsUserMidi(false);
+      if (result.real) {
+        setMidiSource(MidiSource.Transcribed);
+      } else {
+        // Backend transcription failed and we silently fell back to mock
+        // MIDI (transcribe() never throws on backend failure — see
+        // transcriptionService.ts). Mock MIDI is never exportable, and any
+        // token stashed from a PREVIOUS successful transcription must not
+        // survive into this unrelated mock result (fail-closed).
+        setMidiSource(MidiSource.Demo);
+        useExportTokenStore.getState().clearToken();
+      }
       setUserMidiName(null);
       setMidiUploadError(null);
       setCuratedAttribution(null);
       setActiveCuratedId(null);
-      setIsDownloadable(true);
       if (result.real) void fetchDailyCount();
       audioEngine.setBpm(result.bpm);
       audioEngine.loadMidi(result.midi, instrument);
@@ -204,21 +214,33 @@ export function PlayerPage() {
       audioEngine.restart();
       setMidi(loadedMidi);
       setIsReal(true);
-      setIsCurated(false);
-      setIsUserMidi(true);
+      // Clear any stale token (e.g. from a previously transcribed piece)
+      // SYNCHRONOUSLY, before flipping midiSource to UserMidi. This closes
+      // the race window where the new midiSource would be visible/exportable
+      // while an old, unrelated token is still attached — export simply
+      // fails closed (no token) until the mint below resolves.
+      useExportTokenStore.getState().clearToken();
+      setMidiSource(MidiSource.UserMidi);
       setUserMidiName(file.name);
-      setIsDownloadable(true);
       setFile(null);
       setBuffer(null);
       setCuratedAttribution(null);
       setActiveCuratedId(null);
+      // Provenance Layer 2 (design §3, issuance path b): there's no backend
+      // touchpoint for a purely client-side MIDI parse, so mint a dedicated
+      // export token now. Fire-and-forget — never blocks/aborts the upload;
+      // Export simply stays disabled until this resolves. mintMidiUploadToken
+      // never throws and never leaves a stale token live on failure (the
+      // clearToken() above already guarantees that — it only ever sets a
+      // NEW token on success, never restores an old one).
+      void mintMidiUploadToken(session?.access_token);
       setTimeout(() => scrollTo(visualizerRef.current), 250);
     } catch {
       setMidiUploadError('Could not read that MIDI file. Make sure it is a valid .mid or .midi.');
     } finally {
       setBusy(false);
     }
-  }, [instrument]);
+  }, [instrument, session]);
 
   const handleSelectCurated = useCallback(async (song: CuratedMidi) => {
     setBusy(true);
@@ -229,6 +251,9 @@ export function PlayerPage() {
       setBuffer(null);
       audioEngine.stop();
       audioEngine.setSource('synth');
+      // Curated MIDI never gets a token (design §3, issuance path c) — clear
+      // any stale token from a previous exportable piece so it can't leak.
+      useExportTokenStore.getState().clearToken();
 
       await audioEngine.loadInstruments();
 
@@ -262,13 +287,11 @@ export function PlayerPage() {
 
       setMidi(loadedMidi);
       setIsReal(true);
-      setIsCurated(true);
-      setIsUserMidi(false);
+      setMidiSource(MidiSource.Curated);
       setUserMidiName(null);
       setMidiUploadError(null);
       setCuratedAttribution(song.attribution);
       setActiveCuratedId(song.id);
-      setIsDownloadable(false);
 
       audioEngine.restart();
       setTimeout(() => scrollTo(visualizerRef.current), 250);
@@ -304,13 +327,12 @@ export function PlayerPage() {
               instrument={instrument}
               fileName={
                 file?.name
-                  ?? (isUserMidi ? userMidiName : null)
+                  ?? (midiSource === MidiSource.UserMidi ? userMidiName : null)
                   ?? (curatedMidis.find(s => s.id === activeCuratedId)?.title ?? 'Demo · Mock MIDI')
               }
               isRealTranscription={isReal}
-              isCurated={isCurated}
+              midiSource={midiSource}
               curatedAttribution={curatedAttribution}
-              isDownloadable={isDownloadable}
             />
           ) : (
             <div className="text-center text-muted font-mono text-sm py-20">

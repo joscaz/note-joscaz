@@ -4,6 +4,8 @@ import { downloadMidi } from '../services/midiExporter';
 import type { AudioSource } from '../services/audioEngine';
 import type { InstrumentType } from '../utils/noteColors';
 import { NOTE_GRADIENTS } from '../utils/noteColors';
+import { MidiSource, isExportable } from '../types/midiSource';
+import { useExportTokenStore } from '../services/exportToken';
 
 interface PlayerApi {
   isPlaying: boolean;
@@ -32,6 +34,15 @@ interface PlaybackControlsProps {
   midi: Midi;
   instrument: InstrumentType;
   isDownloadable?: boolean;
+  /**
+   * Provenance of the active MIDI. Drives the Export action gate via
+   * isExportable(midiSource) below — kept fail-closed (curated/demo/unknown
+   * never exportable). Does not affect MIDI download, which is still
+   * controlled by the separate isDownloadable prop.
+   */
+  midiSource?: MidiSource | null;
+  /** Opens the export dialog (WU4) — only rendered when canExport is true. */
+  onExportClick?: () => void;
 }
 
 export function PlaybackControls({
@@ -41,8 +52,23 @@ export function PlaybackControls({
   midi,
   instrument,
   isDownloadable = true,
+  midiSource,
+  onExportClick,
 }: PlaybackControlsProps) {
   const grad = NOTE_GRADIENTS[instrument];
+  // Subscribe to the export token so this gate re-evaluates the moment a
+  // token is minted or cleared. The user-MIDI provenance token is minted
+  // async (one backend round-trip) AFTER midiSource flips to UserMidi, so
+  // gating on isExportable(midiSource) alone would show the Export button
+  // before the token lands — the first click would then fail with a
+  // misleading "not eligible" error. Require a present, non-expired token
+  // here too (the server still re-verifies; this is a UX gate).
+  const exportToken = useExportTokenStore((s) => s.token);
+  const exportExp = useExportTokenStore((s) => s.exp);
+  const hasFreshToken =
+    exportToken != null && (exportExp == null || exportExp * 1000 > Date.now());
+  // Fail-closed export gate: provenance (midiSource) AND a fresh token.
+  const canExport = isExportable(midiSource) && hasFreshToken;
 
   // Keyboard shortcuts: Space = toggle, R = restart, ArrowUp/Down = scroll speed.
   useEffect(() => {
@@ -145,10 +171,21 @@ export function PlaybackControls({
           {/* A/B source switch */}
           <ABSwitch value={player.source} onChange={player.setSource} color={grad.top} />
 
+          {canExport && onExportClick && (
+            <button
+              onClick={onExportClick}
+              className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-piano-green/30 text-piano-green hover:bg-piano-green/10 transition-colors sm:ml-auto"
+            >
+              ⬇ Export MP4
+            </button>
+          )}
+
           {isDownloadable && (
             <button
               onClick={() => downloadMidi(midi, `notejoscaz-${instrument}.mid`)}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors sm:ml-auto"
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border border-white/10 text-muted hover:text-text hover:border-white/30 transition-colors ${
+                canExport && onExportClick ? '' : 'sm:ml-auto'
+              }`}
             >
               ↓ MIDI
             </button>
